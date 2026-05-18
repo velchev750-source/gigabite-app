@@ -6,6 +6,7 @@
 ## Technololies
 
 - Next.js + Neon DB + Drizzle ORM + React + Tailwind
+- Do not use JavaScript, Use Typescript
 
 ## Architectural Guidelines
 

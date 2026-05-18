@@ -1,6 +1,5 @@
-import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -83,13 +82,11 @@ const glowKeyframe = new Keyframe({
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
-      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
-      </Animated.View>
+      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow} />
 
       <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+        <Text style={styles.logoText}>G</Text>
       </Animated.View>
     </View>
   );
@@ -104,6 +101,9 @@ const styles = StyleSheet.create({
     width: 201,
     height: 201,
     position: 'absolute',
+    borderRadius: 101,
+    borderWidth: 18,
+    borderColor: 'rgba(255, 184, 0, 0.16)',
   },
   iconContainer: {
     justifyContent: 'center',
@@ -112,21 +112,22 @@ const styles = StyleSheet.create({
     height: 128,
     zIndex: 100,
   },
-  image: {
-    position: 'absolute',
-    width: 76,
-    height: 71,
+  logoText: {
+    color: '#111111',
+    fontSize: 58,
+    fontWeight: '900',
+    lineHeight: 68,
   },
   background: {
     borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
+    backgroundColor: '#ffb800',
     width: 128,
     height: 128,
     position: 'absolute',
   },
   backgroundSolidColor: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#208AEF',
+    backgroundColor: '#ffb800',
     zIndex: 1000,
   },
 });
