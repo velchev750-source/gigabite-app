@@ -41,3 +41,15 @@
  **Gigabite-mobile**
    *Basic guidelines*
 - Has customer functionalities only, no staff and no manager functionalities.
+
+
+ ## Tech Guidelines
+
+ **Gigabite-mobile** 
+ - Technologies: React Native + Expo + Expo Router
+ - Back-end: RESTful API with "bearer token"
+ - Back-end: source code apps/Gigabite-mobile/src/app/api
+ - Modular design: split the app into meaningful components, to avoid too much code in single file and reuse reapeating code
+ - Architectutal Guidelines: modular design, RESTful Api
+ - Mobile UI: user-friendly UI , stack navigation, responsive layout 
+ - Mobile UI alerts: ensure all native alerts, confirms and other system dialogues have a fallback for Web (implement as modal pop up )
