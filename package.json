@@ -1,0 +1,20 @@
+{
+  "name": "gigabite-app",
+  "version": "1.0.0",
+  "description": "Food ordering app - Monorepo",
+  "license": "ISC",
+  "author": "",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "workspaces": [
+    "apps/web",
+    "apps/mobile",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "node ./scripts/run-workspaces.js dev --parallel",
+    "build": "node ./scripts/run-workspaces.js build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
