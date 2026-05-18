@@ -8,8 +8,8 @@
   "type": "commonjs",
   "main": "index.js",
   "workspaces": [
-    "apps/web",
-    "apps/mobile",
+    "apps/Gigabite-web",
+    "apps/Gigabite-mobile",
     "packages/shared"
   ],
   "scripts": {
