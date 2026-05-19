@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
+import { registerSchema } from "@/lib/validations/auth";
+import { getValidationMessage } from "@/lib/validations/form";
 import {
   AuthError,
   createAuthToken,
@@ -10,17 +13,8 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const user = await registerCustomer({
-      name: String(body.name ?? ""),
-      email: String(body.email ?? ""),
-      phone: body.phone ? String(body.phone) : null,
-      defaultDeliveryAddress: body.defaultDeliveryAddress
-        ? String(body.defaultDeliveryAddress)
-        : null,
-      password: String(body.password ?? ""),
-      confirmPassword: String(body.confirmPassword ?? ""),
-    });
+    const body = registerSchema.parse(await request.json());
+    const user = await registerCustomer(body);
     const token = createAuthToken(user);
 
     await setAuthCookie(token);
@@ -30,6 +24,10 @@ export async function POST(request: Request) {
       redirectTo: getDashboardPath(user.role),
     });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ message: getValidationMessage(error) }, { status: 400 });
+    }
+
     if (error instanceof AuthError) {
       return NextResponse.json({ message: error.message }, { status: error.status });
     }

@@ -1,14 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 
+import { getDatabaseUrl } from "@/lib/env";
+
 import * as schema from "./schema";
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL is required to connect to the database.");
-}
-
-const sql = neon(connectionString);
+const sql = neon(getDatabaseUrl());
 
 export const db = drizzle(sql, { schema });

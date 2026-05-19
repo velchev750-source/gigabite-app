@@ -38,71 +38,68 @@ export async function createOrder(input: CreateOrderInput) {
   validateCreateOrderInput(input);
 
   const requestedProductIds = input.items.map((item) => item.productId);
-  const orderId = await db.transaction(async (tx) => {
-    const dbProducts = await tx
-      .select({
-        id: products.id,
-        name: products.name,
-        price: products.price,
-      })
-      .from(products)
-      .where(and(inArray(products.id, requestedProductIds), eq(products.isActive, true)));
+  const dbProducts = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      price: products.price,
+    })
+    .from(products)
+    .where(and(inArray(products.id, requestedProductIds), eq(products.isActive, true)));
 
-    const productsById = new Map(dbProducts.map((product) => [product.id, product]));
-    const missingProductId = requestedProductIds.find((productId) => !productsById.has(productId));
+  const productsById = new Map(dbProducts.map((product) => [product.id, product]));
+  const missingProductId = requestedProductIds.find((productId) => !productsById.has(productId));
 
-    if (missingProductId) {
-      throw new OrderValidationError(`Product ${missingProductId} was not found.`);
+  if (missingProductId) {
+    throw new OrderValidationError(`Product ${missingProductId} was not found.`);
+  }
+
+  const items = input.items.map((item) => {
+    const product = productsById.get(item.productId);
+
+    if (!product) {
+      throw new OrderValidationError(`Product ${item.productId} was not found.`);
     }
 
-    const items = input.items.map((item) => {
-      const product = productsById.get(item.productId);
+    const unitPriceCents = toCents(product.price);
+    const lineTotalCents = unitPriceCents * BigInt(item.quantity);
 
-      if (!product) {
-        throw new OrderValidationError(`Product ${item.productId} was not found.`);
-      }
-
-      const unitPriceCents = toCents(product.price);
-      const lineTotalCents = unitPriceCents * BigInt(item.quantity);
-
-      return {
-        productId: product.id,
-        productName: product.name,
-        unitPrice: product.price,
-        quantity: item.quantity,
-        lineTotal: formatCents(lineTotalCents),
-      };
-    });
-
-    const totalPrice = formatCents(
-      items.reduce((sum, item) => sum + toCents(item.lineTotal), BigInt(0)),
-    );
-
-    const [order] = await tx
-      .insert(orders)
-      .values({
-        userId: input.userId,
-        deliveryType: input.deliveryType,
-        deliveryAddress:
-          input.deliveryType === "delivery" ? input.deliveryAddress?.trim() : null,
-        customerNote: input.customerNote?.trim() || null,
-        totalPrice,
-      })
-      .returning({ id: orders.id });
-
-    await tx.insert(orderItems).values(
-      items.map((item) => ({
-        orderId: order.id,
-        productId: item.productId,
-        productName: item.productName,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        lineTotal: item.lineTotal,
-      })),
-    );
-
-    return order.id;
+    return {
+      productId: product.id,
+      productName: product.name,
+      unitPrice: product.price,
+      quantity: item.quantity,
+      lineTotal: formatCents(lineTotalCents),
+    };
   });
+
+  const totalPrice = formatCents(
+    items.reduce((sum, item) => sum + toCents(item.lineTotal), BigInt(0)),
+  );
+
+  const [order] = await db
+    .insert(orders)
+    .values({
+      userId: input.userId,
+      deliveryType: input.deliveryType,
+      deliveryAddress:
+        input.deliveryType === "delivery" ? input.deliveryAddress?.trim() : null,
+      customerNote: input.customerNote?.trim() || null,
+      totalPrice,
+    })
+    .returning({ id: orders.id });
+
+  await db.insert(orderItems).values(
+    items.map((item) => ({
+      orderId: order.id,
+      productId: item.productId,
+      productName: item.productName,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      lineTotal: item.lineTotal,
+    })),
+  );
+  const orderId = order.id;
 
   return getOrderById(orderId);
 }

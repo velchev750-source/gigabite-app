@@ -1,7 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ZodError } from "zod";
 
+import {
+  customerNoteActionSchema,
+  deliveryAddressActionSchema,
+  managerNoteActionSchema,
+  managerOrderActionSchema,
+} from "@/lib/validations/admin";
+import { formDataToObject, getValidationMessage } from "@/lib/validations/form";
+import { orderIdSchema } from "@/lib/validations/orders";
+import {
+  createStaffByManagerSchema,
+  createUserByManagerSchema,
+} from "@/lib/validations/users";
 import { requireRole } from "@/services/auth";
 import {
   approveCancellation,
@@ -29,7 +42,7 @@ const emptyState: AdminFormState = {
 
 export async function approveOrderAction(formData: FormData) {
   const manager = await requireRole("manager");
-  const orderId = Number(formData.get("orderId"));
+  const orderId = orderIdSchema.parse(formDataToObject(formData).orderId);
 
   await approveOrder(orderId, manager.id);
   revalidatePath("/admin");
@@ -37,8 +50,9 @@ export async function approveOrderAction(formData: FormData) {
 
 export async function cancelOrderAction(formData: FormData) {
   await requireRole("manager");
-  const orderId = Number(formData.get("orderId"));
-  const managerNote = String(formData.get("managerNote") ?? "");
+  const { orderId, managerNote } = managerOrderActionSchema.parse(
+    formDataToObject(formData),
+  );
 
   await cancelOrder(orderId, managerNote);
   revalidatePath("/admin");
@@ -46,8 +60,9 @@ export async function cancelOrderAction(formData: FormData) {
 
 export async function approveCancellationAction(formData: FormData) {
   await requireRole("manager");
-  const orderId = Number(formData.get("orderId"));
-  const managerNote = String(formData.get("managerNote") ?? "");
+  const { orderId, managerNote } = managerOrderActionSchema.parse(
+    formDataToObject(formData),
+  );
 
   await approveCancellation(orderId, managerNote);
   revalidatePath("/admin");
@@ -55,8 +70,9 @@ export async function approveCancellationAction(formData: FormData) {
 
 export async function updateManagerNoteAction(formData: FormData) {
   await requireRole("manager");
-  const orderId = Number(formData.get("orderId"));
-  const managerNote = String(formData.get("managerNote") ?? "");
+  const { orderId, managerNote } = managerNoteActionSchema.parse(
+    formDataToObject(formData),
+  );
 
   await updateManagerOrderNote(orderId, managerNote);
   revalidatePath("/admin");
@@ -64,8 +80,9 @@ export async function updateManagerNoteAction(formData: FormData) {
 
 export async function updateDeliveryAddressAction(formData: FormData) {
   await requireRole("manager");
-  const orderId = Number(formData.get("orderId"));
-  const deliveryAddress = String(formData.get("deliveryAddress") ?? "");
+  const { orderId, deliveryAddress } = deliveryAddressActionSchema.parse(
+    formDataToObject(formData),
+  );
 
   await updateDeliveryAddress(orderId, deliveryAddress);
   revalidatePath("/admin");
@@ -73,8 +90,9 @@ export async function updateDeliveryAddressAction(formData: FormData) {
 
 export async function updateCustomerNoteAction(formData: FormData) {
   await requireRole("manager");
-  const orderId = Number(formData.get("orderId"));
-  const customerNote = String(formData.get("customerNote") ?? "");
+  const { orderId, customerNote } = customerNoteActionSchema.parse(
+    formDataToObject(formData),
+  );
 
   await updateCustomerNote(orderId, customerNote);
   revalidatePath("/admin");
@@ -88,17 +106,15 @@ export async function createUserByManagerAction(
   await requireRole("manager");
 
   try {
-    await createUserByManager({
-      name: String(formData.get("name") ?? ""),
-      email: String(formData.get("email") ?? ""),
-      phone: String(formData.get("phone") ?? ""),
-      defaultDeliveryAddress: String(formData.get("defaultDeliveryAddress") ?? ""),
-      password: String(formData.get("password") ?? ""),
-      confirmPassword: String(formData.get("confirmPassword") ?? ""),
-    });
+    const payload = createUserByManagerSchema.parse(formDataToObject(formData));
+    await createUserByManager(payload);
     revalidatePath("/admin");
     return { ok: true, message: "User account created." };
   } catch (error) {
+    if (error instanceof ZodError) {
+      return { ok: false, message: getValidationMessage(error) };
+    }
+
     if (error instanceof ManagerUserError) {
       return { ok: false, message: error.message };
     }
@@ -115,17 +131,15 @@ export async function createStaffByManagerAction(
   await requireRole("manager");
 
   try {
-    await createStaffByManager({
-      name: String(formData.get("name") ?? ""),
-      email: String(formData.get("email") ?? ""),
-      phone: String(formData.get("phone") ?? ""),
-      workLocation: String(formData.get("workLocation") ?? ""),
-      password: String(formData.get("password") ?? ""),
-      confirmPassword: String(formData.get("confirmPassword") ?? ""),
-    });
+    const payload = createStaffByManagerSchema.parse(formDataToObject(formData));
+    await createStaffByManager(payload);
     revalidatePath("/admin");
     return { ok: true, message: "Staff account created." };
   } catch (error) {
+    if (error instanceof ZodError) {
+      return { ok: false, message: getValidationMessage(error) };
+    }
+
     if (error instanceof ManagerUserError) {
       return { ok: false, message: error.message };
     }

@@ -5,8 +5,9 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
 import { roles, users, type Role } from "@/db/schema";
+import { AUTH_COOKIE_NAME } from "@/lib/auth-constants";
+import { getJwtSecret } from "@/lib/env";
 
-export const AUTH_COOKIE_NAME = "gigabite_auth";
 const AUTH_EXPIRES_IN = "7d";
 const AUTH_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
@@ -318,18 +319,4 @@ export async function updateDefaultDeliveryAddress(userId: number, address?: str
     .returning({ defaultDeliveryAddress: users.defaultDeliveryAddress });
 
   return updatedUser?.defaultDeliveryAddress ?? null;
-}
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-
-  if (secret) {
-    return secret;
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET is required in production.");
-  }
-
-  return "gigabite-development-secret";
 }

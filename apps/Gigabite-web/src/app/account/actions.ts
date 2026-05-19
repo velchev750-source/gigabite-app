@@ -2,16 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
+import { formDataToObject } from "@/lib/validations/form";
+import { orderIdSchema } from "@/lib/validations/orders";
 import { requireRole } from "@/services/auth";
 import { requestOrderCancellation } from "@/services/orders";
 
 export async function requestCancellationAction(formData: FormData) {
   const user = await requireRole("user");
-  const orderId = Number(formData.get("orderId"));
-
-  if (!Number.isInteger(orderId) || orderId <= 0) {
-    return;
-  }
+  const orderId = orderIdSchema.parse(formDataToObject(formData).orderId);
 
   await requestOrderCancellation(user.id, orderId);
   revalidatePath("/account");

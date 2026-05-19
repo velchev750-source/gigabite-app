@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { OrderDetails } from "@/components/account/account-components";
 import { Footer, Header } from "@/components/home/home-page";
+import { orderIdSchema } from "@/lib/validations/orders";
 import { requireRole } from "@/services/auth";
 import { getOrderDetailsForUser } from "@/services/orders";
 
@@ -16,13 +17,13 @@ export default async function AccountOrderDetailsRoute({
 }) {
   const user = await requireRole("user");
   const { orderId } = await params;
-  const parsedOrderId = Number(orderId);
+  const parsedOrderId = orderIdSchema.safeParse(orderId);
 
-  if (!Number.isInteger(parsedOrderId) || parsedOrderId <= 0) {
+  if (!parsedOrderId.success) {
     notFound();
   }
 
-  const order = await getOrderDetailsForUser(user.id, parsedOrderId);
+  const order = await getOrderDetailsForUser(user.id, parsedOrderId.data);
 
   if (!order) {
     notFound();
