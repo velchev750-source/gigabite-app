@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { ArrowRight, LockKeyhole, Mail, Phone, UserRound } from "lucide-react";
+import { ArrowRight, LockKeyhole, Mail, MapPin, Phone, UserRound } from "lucide-react";
 
 type AuthMode = "login" | "register";
 
@@ -69,6 +69,16 @@ export function AuthForm({ mode }: AuthFormProps) {
             type="tel"
             autoComplete="tel"
             placeholder="+359 88 123 4567"
+            required={false}
+          />
+          <Field
+            icon={MapPin}
+            label="Delivery address"
+            name="deliveryAddress"
+            type="text"
+            autoComplete="street-address"
+            placeholder="24 Flavor Street, Sofia"
+            required={false}
           />
         </>
       ) : null}
@@ -133,6 +143,7 @@ function Field({
   type,
   autoComplete,
   placeholder,
+  required = true,
 }: {
   icon: typeof Mail;
   label: string;
@@ -140,6 +151,7 @@ function Field({
   type: string;
   autoComplete: string;
   placeholder: string;
+  required?: boolean;
 }) {
   return (
     <label className="grid gap-2">
@@ -147,7 +159,7 @@ function Field({
       <span className="flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.04] px-4 py-3 text-zinc-200 transition focus-within:border-amber-300/70 focus-within:bg-white/[0.07]">
         <Icon className="size-5 shrink-0 text-amber-300" aria-hidden="true" />
         <input
-          required={name !== "phone"}
+          required={required}
           name={name}
           type={type}
           autoComplete={autoComplete}

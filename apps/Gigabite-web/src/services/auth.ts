@@ -17,6 +17,7 @@ export type AuthUser = {
   email: string;
   name: string;
   phone: string | null;
+  deliveryAddress: string | null;
   role: AuthRole;
 };
 
@@ -49,12 +50,14 @@ export async function registerCustomer(input: {
   name: string;
   email: string;
   phone?: string | null;
+  deliveryAddress?: string | null;
   password: string;
   confirmPassword: string;
 }) {
   const name = input.name.trim();
   const email = normalizeEmail(input.email);
   const phone = input.phone?.trim() || null;
+  const deliveryAddress = input.deliveryAddress?.trim() || null;
 
   validateRequired(name, "Name is required.");
   validateEmail(email);
@@ -92,6 +95,7 @@ export async function registerCustomer(input: {
       name,
       email,
       phone,
+      deliveryAddress,
       passwordHash,
       roleId: userRole.id,
     })
@@ -100,6 +104,7 @@ export async function registerCustomer(input: {
       email: users.email,
       name: users.name,
       phone: users.phone,
+      deliveryAddress: users.deliveryAddress,
     });
 
   return {
@@ -131,6 +136,7 @@ export async function loginUser(input: { email: string; password: string }) {
     email: user.email,
     name: user.name,
     phone: user.phone,
+    deliveryAddress: user.deliveryAddress,
     role: user.role,
   };
 }
@@ -190,6 +196,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       email: user.email,
       name: user.name,
       phone: user.phone,
+      deliveryAddress: user.deliveryAddress,
       role: user.role,
     };
   } catch {
@@ -235,6 +242,7 @@ async function getUserByEmail(email: string) {
       email: users.email,
       name: users.name,
       phone: users.phone,
+      deliveryAddress: users.deliveryAddress,
       passwordHash: users.passwordHash,
       role: roles.name,
     })
@@ -254,6 +262,7 @@ async function getUserById(userId: number) {
       email: users.email,
       name: users.name,
       phone: users.phone,
+      deliveryAddress: users.deliveryAddress,
       role: roles.name,
     })
     .from(users)

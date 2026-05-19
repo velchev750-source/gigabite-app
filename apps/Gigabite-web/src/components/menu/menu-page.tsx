@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Minus,
@@ -11,9 +11,11 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { MenuCategory, MenuProduct } from "@/services/menu";
+
+const CART_STORAGE_KEY = "gigabite_cart";
 
 const fallbackImages: Record<string, string> = {
   Burgers:
@@ -42,10 +44,19 @@ function getProductImage(product: MenuProduct, categoryName: string) {
   return product.imageUrl || fallbackImages[categoryName] || fallbackImages.Burgers;
 }
 
-export function MenuPage({ categories }: { categories: MenuCategory[] }) {
+export function MenuPage({
+  categories,
+  userRole,
+}: {
+  categories: MenuCategory[];
+  userRole: "user" | "staff" | "manager" | null;
+}) {
+  const router = useRouter();
   const [activeCategoryId, setActiveCategoryId] = useState<number | "all">("all");
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [cart, setCart] = useState<Record<number, CartItem>>({});
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
+  const [cartMessage, setCartMessage] = useState<string | null>(null);
 
   const products = useMemo(() => {
     return categories.flatMap((category) =>
@@ -71,6 +82,34 @@ export function MenuPage({ categories }: { categories: MenuCategory[] }) {
     0,
   );
 
+  useEffect(() => {
+    const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+
+    if (!savedCart) {
+      queueMicrotask(() => setIsCartLoaded(true));
+      return;
+    }
+
+    try {
+      const parsedCart = JSON.parse(savedCart) as Record<number, CartItem>;
+      queueMicrotask(() => {
+        setCart(parsedCart);
+        setIsCartLoaded(true);
+      });
+    } catch {
+      window.localStorage.removeItem(CART_STORAGE_KEY);
+      queueMicrotask(() => setIsCartLoaded(true));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isCartLoaded) {
+      return;
+    }
+
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  }, [cart, isCartLoaded]);
+
   function getQuantity(productId: number) {
     return quantities[productId] ?? 1;
   }
@@ -83,6 +122,16 @@ export function MenuPage({ categories }: { categories: MenuCategory[] }) {
   }
 
   function addToCart(product: MenuProduct) {
+    if (!userRole) {
+      setCartMessage("Please log in or register before adding items to your cart.");
+      return;
+    }
+
+    if (userRole !== "user") {
+      setCartMessage("Menu ordering is available for customer accounts.");
+      return;
+    }
+
     const quantity = getQuantity(product.id);
 
     setCart((current) => {
@@ -96,6 +145,21 @@ export function MenuPage({ categories }: { categories: MenuCategory[] }) {
         },
       };
     });
+    setCartMessage(`${product.name} added to your cart.`);
+  }
+
+  function goToCheckout() {
+    if (!userRole) {
+      router.push("/login?next=/checkout");
+      return;
+    }
+
+    if (userRole !== "user") {
+      setCartMessage("Staff and manager accounts should use their role dashboard.");
+      return;
+    }
+
+    router.push("/checkout");
   }
 
   return (
@@ -117,6 +181,11 @@ export function MenuPage({ categories }: { categories: MenuCategory[] }) {
                 build a quick local cart before checkout arrives.
               </p>
             </div>
+            {cartMessage ? (
+              <div className="mt-6 max-w-xl rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100">
+                {cartMessage}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -229,6 +298,7 @@ export function MenuPage({ categories }: { categories: MenuCategory[] }) {
                   cartItems={cartItems}
                   totalItems={totalItems}
                   totalPrice={totalPrice}
+                  onCheckout={goToCheckout}
                 />
               </div>
             </aside>
@@ -241,16 +311,16 @@ export function MenuPage({ categories }: { categories: MenuCategory[] }) {
             <div>
               <p className="text-sm font-semibold text-zinc-400">Cart total</p>
               <p className="text-xl font-black text-white">
-                {totalItems} items · {formatPrice(totalPrice)}
+                {totalItems} items / {formatPrice(totalPrice)}
               </p>
             </div>
-            <Link
-              href="/checkout"
+            <button
+              onClick={goToCheckout}
               className="inline-flex items-center gap-2 rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950"
             >
               Checkout
               <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -262,10 +332,12 @@ function CartSummary({
   cartItems,
   totalItems,
   totalPrice,
+  onCheckout,
 }: {
   cartItems: CartItem[];
   totalItems: number;
   totalPrice: number;
+  onCheckout: () => void;
 }) {
   return (
     <div>
@@ -307,12 +379,13 @@ function CartSummary({
             {formatPrice(totalPrice)}
           </span>
         </div>
-        <Link
-          href="/checkout"
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-5 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
+        <button
+          onClick={onCheckout}
+          disabled={!cartItems.length}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-5 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Go to Checkout <ArrowRight className="size-4" aria-hidden="true" />
-        </Link>
+        </button>
       </div>
     </div>
   );

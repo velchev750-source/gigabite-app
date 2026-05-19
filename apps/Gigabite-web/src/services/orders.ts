@@ -1,7 +1,18 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { orderItems, orders, products } from "@/db/schema";
+import { orderItems, orders, products, type Order } from "@/db/schema";
+
+export const ACTIVE_ORDER_STATUSES = [
+  "pending_approval",
+  "approved",
+  "in_progress",
+  "cancel_requested",
+] as const;
+
+export const CANCELLABLE_ORDER_STATUSES = ["pending_approval", "approved"] as const;
+
+export type OrderStatus = Order["status"];
 
 type CreateOrderItemInput = {
   productId: number;
@@ -106,6 +117,61 @@ export async function getOrderById(orderId: number) {
   });
 
   return order ?? null;
+}
+
+export async function getOrdersForUser(userId: number) {
+  return db.query.orders.findMany({
+    where: eq(orders.userId, userId),
+    orderBy: [desc(orders.createdAt)],
+  });
+}
+
+export async function getActiveOrderForUser(userId: number) {
+  const [order] = await db.query.orders.findMany({
+    where: and(
+      eq(orders.userId, userId),
+      inArray(orders.status, [...ACTIVE_ORDER_STATUSES]),
+    ),
+    orderBy: [desc(orders.createdAt)],
+    limit: 1,
+  });
+
+  return order ?? null;
+}
+
+export async function getOrderDetailsForUser(userId: number, orderId: number) {
+  const [order] = await db.query.orders.findMany({
+    where: and(eq(orders.id, orderId), eq(orders.userId, userId)),
+    with: {
+      items: true,
+    },
+    limit: 1,
+  });
+
+  return order ?? null;
+}
+
+export async function requestOrderCancellation(userId: number, orderId: number) {
+  const order = await getOrderDetailsForUser(userId, orderId);
+
+  if (!order) {
+    throw new OrderValidationError("Order was not found.");
+  }
+
+  if (!CANCELLABLE_ORDER_STATUSES.includes(order.status as (typeof CANCELLABLE_ORDER_STATUSES)[number])) {
+    throw new OrderValidationError("This order can no longer be cancelled.");
+  }
+
+  const [updatedOrder] = await db
+    .update(orders)
+    .set({
+      status: "cancel_requested",
+      cancelRequestedAt: new Date(),
+    })
+    .where(and(eq(orders.id, orderId), eq(orders.userId, userId)))
+    .returning();
+
+  return updatedOrder;
 }
 
 function validateCreateOrderInput(input: CreateOrderInput) {

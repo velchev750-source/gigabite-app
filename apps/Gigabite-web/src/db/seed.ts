@@ -10,18 +10,21 @@ const seedUsers = [
   {
     email: "user100@gigabite.demo",
     name: "User100",
+    deliveryAddress: "24 Flavor Street, Sofia",
     password: "Pass100",
     role: "user",
   },
   {
     email: "user101@gigabite.demo",
     name: "User101",
+    deliveryAddress: "8 Burger Lane, Sofia",
     password: "Pass101",
     role: "user",
   },
   {
     email: "user102@gigabite.demo",
     name: "User102",
+    deliveryAddress: "15 Pizza Square, Sofia",
     password: "Pass102",
     role: "user",
   },
@@ -51,9 +54,10 @@ const seedUsers = [
   },
 ] satisfies Array<{
   email: string;
-  name: string;
-  password: string;
-  role: (typeof roleNames)[number];
+    name: string;
+    deliveryAddress?: string;
+    password: string;
+    role: (typeof roleNames)[number];
 }>;
 
 const seedCategories = [
@@ -242,6 +246,7 @@ async function seedDemoUsers(roleIds: Map<(typeof roleNames)[number], number>) {
         email: user.email,
         passwordHash: await bcrypt.hash(user.password, 12),
         name: user.name,
+        deliveryAddress: user.deliveryAddress ?? null,
         roleId,
       };
     }),

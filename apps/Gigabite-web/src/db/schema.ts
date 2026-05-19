@@ -22,7 +22,6 @@ export const orderStatusEnum = pgEnum("order_status", [
   "completed",
   "cancel_requested",
   "cancelled",
-  "rejected",
 ]);
 
 export const deliveryTypeEnum = pgEnum("delivery_type", ["pickup", "delivery"]);
@@ -52,6 +51,7 @@ export const users = pgTable(
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
     phone: text("phone"),
+    deliveryAddress: text("delivery_address"),
     roleId: integer("role_id")
       .notNull()
       .references(() => roles.id),
