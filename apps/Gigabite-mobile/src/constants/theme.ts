@@ -5,7 +5,40 @@
 
 import '@/global.css';
 
+import { DarkTheme } from '@react-navigation/native';
 import { Platform } from 'react-native';
+
+export const GigabiteColors = {
+  background: '#09090b',
+  surface: '#18181b',
+  surfaceSoft: '#27272a',
+  card: '#111113',
+  border: 'rgba(255,255,255,0.10)',
+  text: '#ffffff',
+  textMuted: '#a1a1aa',
+  textSubtle: '#71717a',
+  amber: '#fbbf24',
+  amberSoft: 'rgba(251,191,36,0.14)',
+  rose: '#f43f5e',
+  roseSoft: 'rgba(244,63,94,0.14)',
+  emerald: '#34d399',
+  emeraldSoft: 'rgba(52,211,153,0.14)',
+  sky: '#38bdf8',
+  skySoft: 'rgba(56,189,248,0.14)',
+} as const;
+
+export const GigabiteNavigationTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: GigabiteColors.amber,
+    background: GigabiteColors.background,
+    card: GigabiteColors.surface,
+    text: GigabiteColors.text,
+    border: GigabiteColors.border,
+    notification: GigabiteColors.rose,
+  },
+};
 
 export const Colors = {
   light: {
@@ -16,11 +49,11 @@ export const Colors = {
     textSecondary: '#60646C',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: GigabiteColors.text,
+    background: GigabiteColors.background,
+    backgroundElement: GigabiteColors.surface,
+    backgroundSelected: GigabiteColors.surfaceSoft,
+    textSecondary: GigabiteColors.textMuted,
   },
 } as const;
 
