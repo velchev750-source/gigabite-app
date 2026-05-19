@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { orders } from "@/db/schema";
+import { requireRole } from "@/services/auth";
 
 export class ManagerOrderError extends Error {
   constructor(message: string) {
@@ -11,6 +12,8 @@ export class ManagerOrderError extends Error {
 }
 
 export async function getManagerOrders() {
+  await requireRole("manager");
+
   const [pendingApproval, cancellationRequests, activeOrders, completed, cancelled] =
     await Promise.all([
       getOrdersByStatus(["pending_approval"]),
@@ -30,6 +33,8 @@ export async function getManagerOrders() {
 }
 
 export async function getManagerMetrics() {
+  await requireRole("manager");
+
   const now = new Date();
   const startOfToday = startOfDay(now);
   const startOfTomorrow = addDays(startOfToday, 1);
@@ -64,6 +69,12 @@ export async function getManagerMetrics() {
 }
 
 export async function approveOrder(orderId: number, managerId: number) {
+  const manager = await requireRole("manager");
+
+  if (manager.id !== managerId) {
+    throw new ManagerOrderError("Manager id does not match the authenticated manager.");
+  }
+
   validateOrderId(orderId);
 
   const [updatedOrder] = await db
@@ -83,6 +94,8 @@ export async function approveOrder(orderId: number, managerId: number) {
 }
 
 export async function cancelOrder(orderId: number, managerNote?: string | null) {
+  await requireRole("manager");
+
   validateOrderId(orderId);
 
   const [updatedOrder] = await db
@@ -102,6 +115,8 @@ export async function cancelOrder(orderId: number, managerNote?: string | null) 
 }
 
 export async function approveCancellation(orderId: number, managerNote?: string | null) {
+  await requireRole("manager");
+
   validateOrderId(orderId);
   const now = new Date();
 
@@ -123,6 +138,8 @@ export async function approveCancellation(orderId: number, managerNote?: string 
 }
 
 export async function updateManagerOrderNote(orderId: number, managerNote?: string | null) {
+  await requireRole("manager");
+
   validateOrderId(orderId);
 
   const [updatedOrder] = await db
@@ -139,6 +156,8 @@ export async function updateManagerOrderNote(orderId: number, managerNote?: stri
 }
 
 export async function updateDeliveryAddress(orderId: number, deliveryAddress?: string | null) {
+  await requireRole("manager");
+
   validateOrderId(orderId);
   const nextAddress = normalizeRequiredText(deliveryAddress, "Delivery address is required.");
 
@@ -162,6 +181,8 @@ export async function updateDeliveryAddress(orderId: number, deliveryAddress?: s
 }
 
 export async function updateCustomerNote(orderId: number, customerNote?: string | null) {
+  await requireRole("manager");
+
   validateOrderId(orderId);
 
   const [updatedOrder] = await db

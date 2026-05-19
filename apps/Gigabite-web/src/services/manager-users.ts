@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { roles, users, type Role } from "@/db/schema";
+import { requireRole } from "@/services/auth";
 
 type CreateManagedUserInput = {
   name: string;
@@ -28,6 +29,8 @@ export class ManagerUserError extends Error {
 }
 
 export async function getManageableUsers() {
+  await requireRole("manager");
+
   return db
     .select({
       id: users.id,
@@ -44,6 +47,8 @@ export async function getManageableUsers() {
 }
 
 export async function createUserByManager(input: CreateUserByManagerInput) {
+  await requireRole("manager");
+
   return createManagedUser({
     ...input,
     role: "user",
@@ -53,6 +58,8 @@ export async function createUserByManager(input: CreateUserByManagerInput) {
 }
 
 export async function createStaffByManager(input: CreateStaffByManagerInput) {
+  await requireRole("manager");
+
   const workLocation = input.workLocation.trim();
   validateRequired(workLocation, "Work location is required for staff users.");
 

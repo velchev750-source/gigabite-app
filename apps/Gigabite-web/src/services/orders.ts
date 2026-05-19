@@ -2,6 +2,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { orderItems, orders, products, type Order } from "@/db/schema";
+import { requireRole } from "@/services/auth";
 
 export const ACTIVE_ORDER_STATUSES = [
   "pending_approval",
@@ -35,6 +36,12 @@ export class OrderValidationError extends Error {
 }
 
 export async function createOrder(input: CreateOrderInput) {
+  const user = await requireRole("user");
+
+  if (input.userId !== user.id) {
+    throw new OrderValidationError("Users can only create orders for their own account.");
+  }
+
   validateCreateOrderInput(input);
 
   const requestedProductIds = input.items.map((item) => item.productId);
@@ -104,7 +111,7 @@ export async function createOrder(input: CreateOrderInput) {
   return getOrderById(orderId);
 }
 
-export async function getOrderById(orderId: number) {
+async function getOrderById(orderId: number) {
   const [order] = await db.query.orders.findMany({
     where: eq(orders.id, orderId),
     with: {
@@ -117,6 +124,8 @@ export async function getOrderById(orderId: number) {
 }
 
 export async function getOrdersForUser(userId: number) {
+  await requireCurrentCustomer(userId);
+
   return db.query.orders.findMany({
     where: eq(orders.userId, userId),
     orderBy: [desc(orders.createdAt)],
@@ -124,6 +133,8 @@ export async function getOrdersForUser(userId: number) {
 }
 
 export async function getActiveOrderForUser(userId: number) {
+  await requireCurrentCustomer(userId);
+
   const [order] = await db.query.orders.findMany({
     where: and(
       eq(orders.userId, userId),
@@ -137,6 +148,8 @@ export async function getActiveOrderForUser(userId: number) {
 }
 
 export async function getOrderDetailsForUser(userId: number, orderId: number) {
+  await requireCurrentCustomer(userId);
+
   const [order] = await db.query.orders.findMany({
     where: and(eq(orders.id, orderId), eq(orders.userId, userId)),
     with: {
@@ -149,6 +162,7 @@ export async function getOrderDetailsForUser(userId: number, orderId: number) {
 }
 
 export async function requestOrderCancellation(userId: number, orderId: number) {
+  await requireCurrentCustomer(userId);
   const order = await getOrderDetailsForUser(userId, orderId);
 
   if (!order) {
@@ -169,6 +183,16 @@ export async function requestOrderCancellation(userId: number, orderId: number) 
     .returning();
 
   return updatedOrder;
+}
+
+async function requireCurrentCustomer(userId: number) {
+  const user = await requireRole("user");
+
+  if (user.id !== userId) {
+    throw new OrderValidationError("Users can only access their own orders.");
+  }
+
+  return user;
 }
 
 function validateCreateOrderInput(input: CreateOrderInput) {

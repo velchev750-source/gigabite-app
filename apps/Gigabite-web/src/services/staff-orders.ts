@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { orders } from "@/db/schema";
+import { requireRole } from "@/services/auth";
 
 export type StaffOrderStatus = "approved" | "in_progress" | "completed";
 
@@ -13,6 +14,8 @@ export class StaffOrderError extends Error {
 }
 
 export async function getStaffOrders() {
+  await requireRole("staff");
+
   const [waiting, inProgress, completed] = await Promise.all([
     getOrdersByStatus("approved"),
     getOrdersByStatus("in_progress"),
@@ -27,6 +30,8 @@ export async function getStaffOrders() {
 }
 
 export async function getStaffStats() {
+  await requireRole("staff");
+
   const now = new Date();
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
@@ -56,10 +61,14 @@ export async function getStaffStats() {
 }
 
 export async function startOrderPreparation(orderId: number) {
+  await requireRole("staff");
+
   return updateStaffOrderStatus(orderId, "approved", "in_progress");
 }
 
 export async function completeOrder(orderId: number) {
+  await requireRole("staff");
+
   return updateStaffOrderStatus(orderId, "in_progress", "completed");
 }
 
