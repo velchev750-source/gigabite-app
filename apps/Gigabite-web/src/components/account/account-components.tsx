@@ -74,8 +74,8 @@ export function AccountSummary({ user }: { user: AuthUser }) {
         <AccountField label="Email" value={user.email} />
         <AccountField label="Phone" value={user.phone ?? "Not added"} />
         <AccountField
-          label="Delivery address"
-          value={user.deliveryAddress ?? "Not added"}
+          label="Default delivery address"
+          value={user.defaultDeliveryAddress ?? "Not added"}
         />
       </div>
     </section>

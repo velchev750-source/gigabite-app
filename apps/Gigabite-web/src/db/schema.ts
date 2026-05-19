@@ -51,7 +51,8 @@ export const users = pgTable(
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
     phone: text("phone"),
-    deliveryAddress: text("delivery_address"),
+    defaultDeliveryAddress: text("default_delivery_address"),
+    workLocation: text("work_location"),
     roleId: integer("role_id")
       .notNull()
       .references(() => roles.id),

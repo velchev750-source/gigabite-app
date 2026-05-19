@@ -15,7 +15,9 @@ export async function POST(request: Request) {
       name: String(body.name ?? ""),
       email: String(body.email ?? ""),
       phone: body.phone ? String(body.phone) : null,
-      deliveryAddress: body.deliveryAddress ? String(body.deliveryAddress) : null,
+      defaultDeliveryAddress: body.defaultDeliveryAddress
+        ? String(body.defaultDeliveryAddress)
+        : null,
       password: String(body.password ?? ""),
       confirmPassword: String(body.confirmPassword ?? ""),
     });

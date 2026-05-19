@@ -23,11 +23,15 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-export function CheckoutPage() {
+export function CheckoutPage({
+  prefilledDeliveryAddress,
+}: {
+  prefilledDeliveryAddress: string;
+}) {
   const router = useRouter();
   const [cartItems, setCartItems] = useState<StoredCartItem[]>([]);
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState(prefilledDeliveryAddress);
   const [customerNote, setCustomerNote] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);

@@ -73,8 +73,8 @@ export function AuthForm({ mode }: AuthFormProps) {
           />
           <Field
             icon={MapPin}
-            label="Delivery address"
-            name="deliveryAddress"
+            label="Default delivery address"
+            name="defaultDeliveryAddress"
             type="text"
             autoComplete="street-address"
             placeholder="24 Flavor Street, Sofia"

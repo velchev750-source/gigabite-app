@@ -10,39 +10,42 @@ const seedUsers = [
   {
     email: "user100@gigabite.demo",
     name: "User100",
-    deliveryAddress: "24 Flavor Street, Sofia",
+    defaultDeliveryAddress: "24 Flavor Street, Sofia",
     password: "Pass100",
     role: "user",
   },
   {
     email: "user101@gigabite.demo",
     name: "User101",
-    deliveryAddress: "8 Burger Lane, Sofia",
+    defaultDeliveryAddress: "8 Burger Lane, Sofia",
     password: "Pass101",
     role: "user",
   },
   {
     email: "user102@gigabite.demo",
     name: "User102",
-    deliveryAddress: "15 Pizza Square, Sofia",
+    defaultDeliveryAddress: "15 Pizza Square, Sofia",
     password: "Pass102",
     role: "user",
   },
   {
     email: "staff200@gigabite.demo",
     name: "Staff200",
+    workLocation: "Gigabite Center",
     password: "Pass200",
     role: "staff",
   },
   {
     email: "staff201@gigabite.demo",
     name: "Staff201",
+    workLocation: "Gigabite Mall",
     password: "Pass201",
     role: "staff",
   },
   {
     email: "staff202@gigabite.demo",
     name: "Staff202",
+    workLocation: "Gigabite Studentski Grad",
     password: "Pass202",
     role: "staff",
   },
@@ -53,9 +56,10 @@ const seedUsers = [
     role: "manager",
   },
 ] satisfies Array<{
-  email: string;
+    email: string;
     name: string;
-    deliveryAddress?: string;
+    defaultDeliveryAddress?: string;
+    workLocation?: string;
     password: string;
     role: (typeof roleNames)[number];
 }>;
@@ -246,7 +250,8 @@ async function seedDemoUsers(roleIds: Map<(typeof roleNames)[number], number>) {
         email: user.email,
         passwordHash: await bcrypt.hash(user.password, 12),
         name: user.name,
-        deliveryAddress: user.deliveryAddress ?? null,
+        defaultDeliveryAddress: user.defaultDeliveryAddress ?? null,
+        workLocation: user.workLocation ?? null,
         roleId,
       };
     }),

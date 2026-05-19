@@ -25,21 +25,26 @@ import {
   StatusBadge,
 } from "@/components/account/account-components";
 import { AdminActionButton } from "@/components/admin/admin-action-button";
+import { AdminUserManagement } from "@/components/admin/admin-user-management";
 import type { AuthUser } from "@/services/auth";
 import type { getManagerMetrics, getManagerOrders } from "@/services/manager-orders";
+import type { getManageableUsers } from "@/services/manager-users";
 
 type ManagerOrders = Awaited<ReturnType<typeof getManagerOrders>>;
 type ManagerMetrics = Awaited<ReturnType<typeof getManagerMetrics>>;
 type ManagerOrder = ManagerOrders[keyof ManagerOrders][number];
+type ManagedUsers = Awaited<ReturnType<typeof getManageableUsers>>;
 
 export function AdminPanel({
   user,
   metrics,
   orders,
+  users,
 }: {
   user: AuthUser;
   metrics: ManagerMetrics;
   orders: ManagerOrders;
+  users: ManagedUsers;
 }) {
   return (
     <main className="bg-zinc-950 px-4 py-16 sm:px-6 lg:px-8">
@@ -107,6 +112,7 @@ export function AdminPanel({
         </section>
 
         <div className="mt-8 grid gap-6">
+          <AdminUserManagement users={users} />
           <OrderSection
             title="Pending Approval"
             subtitle="New orders waiting for manager review"
