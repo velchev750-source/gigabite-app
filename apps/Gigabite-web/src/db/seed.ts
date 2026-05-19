@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import { db } from ".";
-import { categories, products, roles, users } from "./schema";
+import { categories, orderItems, orders, products, roles, users } from "./schema";
 
 const roleNames = ["user", "staff", "manager"] as const;
 
@@ -10,6 +10,7 @@ const seedUsers = [
   {
     email: "user100@gigabite.demo",
     name: "User100",
+    phone: "+359 88 100 0100",
     defaultDeliveryAddress: "24 Flavor Street, Sofia",
     password: "Pass100",
     role: "user",
@@ -17,6 +18,7 @@ const seedUsers = [
   {
     email: "user101@gigabite.demo",
     name: "User101",
+    phone: "+359 88 100 0101",
     defaultDeliveryAddress: "8 Burger Lane, Sofia",
     password: "Pass101",
     role: "user",
@@ -24,6 +26,7 @@ const seedUsers = [
   {
     email: "user102@gigabite.demo",
     name: "User102",
+    phone: "+359 88 100 0102",
     defaultDeliveryAddress: "15 Pizza Square, Sofia",
     password: "Pass102",
     role: "user",
@@ -31,6 +34,7 @@ const seedUsers = [
   {
     email: "staff200@gigabite.demo",
     name: "Staff200",
+    phone: "+359 88 200 0200",
     workLocation: "Gigabite Center",
     password: "Pass200",
     role: "staff",
@@ -38,6 +42,7 @@ const seedUsers = [
   {
     email: "staff201@gigabite.demo",
     name: "Staff201",
+    phone: "+359 88 200 0201",
     workLocation: "Gigabite Mall",
     password: "Pass201",
     role: "staff",
@@ -45,6 +50,7 @@ const seedUsers = [
   {
     email: "staff202@gigabite.demo",
     name: "Staff202",
+    phone: "+359 88 200 0202",
     workLocation: "Gigabite Studentski Grad",
     password: "Pass202",
     role: "staff",
@@ -52,16 +58,149 @@ const seedUsers = [
   {
     email: "manager300@gigabite.demo",
     name: "Manager300",
+    phone: "+359 88 300 0300",
     password: "Pass300",
     role: "manager",
   },
 ] satisfies Array<{
     email: string;
     name: string;
+    phone: string;
     defaultDeliveryAddress?: string;
     workLocation?: string;
     password: string;
     role: (typeof roleNames)[number];
+}>;
+
+const seedOrders = [
+  {
+    note: "Seed order 01 - pending delivery",
+    userEmail: "user100@gigabite.demo",
+    status: "pending_approval",
+    deliveryType: "delivery",
+    deliveryAddress: "24 Flavor Street, Sofia",
+    items: [
+      { productName: "Classic Burger", quantity: 2 },
+      { productName: "Coca-Cola", quantity: 2 },
+    ],
+  },
+  {
+    note: "Seed order 02 - pending pickup",
+    userEmail: "user101@gigabite.demo",
+    status: "pending_approval",
+    deliveryType: "pickup",
+    items: [
+      { productName: "Pepperoni Pizza", quantity: 1 },
+      { productName: "Iced Tea", quantity: 1 },
+    ],
+  },
+  {
+    note: "Seed order 03 - approved delivery",
+    userEmail: "user102@gigabite.demo",
+    status: "approved",
+    deliveryType: "delivery",
+    deliveryAddress: "15 Pizza Square, Sofia",
+    managerNote: "Approved for the lunch queue.",
+    items: [
+      { productName: "Double Burger", quantity: 1 },
+      { productName: "Classic Fries", quantity: 1 },
+    ],
+  },
+  {
+    note: "Seed order 04 - approved pickup",
+    userEmail: "user100@gigabite.demo",
+    status: "approved",
+    deliveryType: "pickup",
+    items: [
+      { productName: "Margherita Pizza", quantity: 2 },
+      { productName: "Sprite", quantity: 2 },
+    ],
+  },
+  {
+    note: "Seed order 05 - in progress delivery",
+    userEmail: "user101@gigabite.demo",
+    status: "in_progress",
+    deliveryType: "delivery",
+    deliveryAddress: "8 Burger Lane, Sofia",
+    managerNote: "Started by kitchen staff.",
+    items: [
+      { productName: "Chicken Burger", quantity: 1 },
+      { productName: "Sweet Potato Fries", quantity: 1 },
+    ],
+  },
+  {
+    note: "Seed order 06 - in progress pickup",
+    userEmail: "user102@gigabite.demo",
+    status: "in_progress",
+    deliveryType: "pickup",
+    items: [
+      { productName: "BBQ Chicken Pizza", quantity: 1 },
+      { productName: "Mineral Water", quantity: 1 },
+    ],
+  },
+  {
+    note: "Seed order 07 - completed today",
+    userEmail: "user100@gigabite.demo",
+    status: "completed",
+    deliveryType: "delivery",
+    deliveryAddress: "24 Flavor Street, Sofia",
+    items: [
+      { productName: "Bacon Burger", quantity: 1 },
+      { productName: "Onion Rings", quantity: 1 },
+      { productName: "Fanta Orange", quantity: 1 },
+    ],
+  },
+  {
+    note: "Seed order 08 - completed pickup",
+    userEmail: "user101@gigabite.demo",
+    status: "completed",
+    deliveryType: "pickup",
+    managerNote: "Completed demo order.",
+    items: [
+      { productName: "Vegetarian Pizza", quantity: 1 },
+      { productName: "Cheesy Fries", quantity: 1 },
+    ],
+  },
+  {
+    note: "Seed order 09 - cancel requested",
+    userEmail: "user102@gigabite.demo",
+    status: "cancel_requested",
+    deliveryType: "delivery",
+    deliveryAddress: "15 Pizza Square, Sofia",
+    items: [
+      { productName: "Cheeseburger", quantity: 2 },
+      { productName: "Coca-Cola", quantity: 1 },
+    ],
+  },
+  {
+    note: "Seed order 10 - cancelled",
+    userEmail: "user101@gigabite.demo",
+    status: "cancelled",
+    deliveryType: "delivery",
+    deliveryAddress: "8 Burger Lane, Sofia",
+    managerNote: "Cancelled test order.",
+    items: [
+      { productName: "Capricciosa Pizza", quantity: 1 },
+      { productName: "Chicken Nuggets", quantity: 1 },
+    ],
+  },
+] satisfies Array<{
+  note: string;
+  userEmail: string;
+  status:
+    | "pending_approval"
+    | "approved"
+    | "in_progress"
+    | "completed"
+    | "cancel_requested"
+    | "cancelled";
+  deliveryType: "pickup" | "delivery";
+  deliveryAddress?: string;
+  managerNote?: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+  }>;
 }>;
 
 const seedCategories = [
@@ -211,6 +350,7 @@ async function main() {
 
   await seedDemoUsers(roleIds);
   await seedMenu();
+  await seedDemoOrders();
 }
 
 async function seedRoles() {
@@ -250,6 +390,7 @@ async function seedDemoUsers(roleIds: Map<(typeof roleNames)[number], number>) {
         email: user.email,
         passwordHash: await bcrypt.hash(user.password, 12),
         name: user.name,
+        phone: user.phone,
         defaultDeliveryAddress: user.defaultDeliveryAddress ?? null,
         workLocation: user.workLocation ?? null,
         roleId,
@@ -258,6 +399,36 @@ async function seedDemoUsers(roleIds: Map<(typeof roleNames)[number], number>) {
   );
 
   await db.insert(users).values(values).onConflictDoNothing({ target: users.email });
+  await fillBlankDemoUserProfiles();
+}
+
+async function fillBlankDemoUserProfiles() {
+  for (const seedUser of seedUsers) {
+    const [existingUser] = await db
+      .select({
+        id: users.id,
+        phone: users.phone,
+        defaultDeliveryAddress: users.defaultDeliveryAddress,
+        workLocation: users.workLocation,
+      })
+      .from(users)
+      .where(eq(users.email, seedUser.email))
+      .limit(1);
+
+    if (!existingUser) {
+      continue;
+    }
+
+    await db
+      .update(users)
+      .set({
+        phone: existingUser.phone || seedUser.phone,
+        defaultDeliveryAddress:
+          existingUser.defaultDeliveryAddress || seedUser.defaultDeliveryAddress || null,
+        workLocation: existingUser.workLocation || seedUser.workLocation || null,
+      })
+      .where(eq(users.id, existingUser.id));
+  }
 }
 
 async function seedMenu() {
@@ -334,9 +505,128 @@ async function insertMissingProducts(categoryIds: Map<string, number>) {
   await db.insert(products).values(missingProducts);
 }
 
+async function seedDemoOrders() {
+  const existingSeedOrders = await db
+    .select({ customerNote: orders.customerNote })
+    .from(orders)
+    .where(inArray(orders.customerNote, seedOrders.map((order) => order.note)));
+  const existingNotes = new Set(existingSeedOrders.map((order) => order.customerNote));
+  const missingOrders = seedOrders.filter((order) => !existingNotes.has(order.note));
+
+  if (!missingOrders.length) {
+    return;
+  }
+
+  const userRows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+    })
+    .from(users)
+    .where(inArray(users.email, seedOrders.map((order) => order.userEmail)));
+  const userIdsByEmail = new Map(userRows.map((user) => [user.email, user.id]));
+
+  const productNames = [...new Set(seedOrders.flatMap((order) => order.items.map((item) => item.productName)))];
+  const productRows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      price: products.price,
+    })
+    .from(products)
+    .where(inArray(products.name, productNames));
+  const productsByName = new Map(productRows.map((product) => [product.name, product]));
+
+  const [manager] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, "manager300@gigabite.demo"))
+    .limit(1);
+
+  for (const [index, seedOrder] of missingOrders.entries()) {
+    const userId = userIdsByEmail.get(seedOrder.userEmail);
+
+    if (!userId) {
+      throw new Error(`Missing customer for seed order: ${seedOrder.userEmail}`);
+    }
+
+    const createdAt = new Date();
+    createdAt.setHours(createdAt.getHours() - (missingOrders.length - index));
+
+    const itemValues = seedOrder.items.map((item) => {
+      const product = productsByName.get(item.productName);
+
+      if (!product) {
+        throw new Error(`Missing product for seed order: ${item.productName}`);
+      }
+
+      const lineTotalCents = toCents(product.price) * BigInt(item.quantity);
+
+      return {
+        productId: product.id,
+        productName: product.name,
+        unitPrice: product.price,
+        quantity: item.quantity,
+        lineTotal: formatCents(lineTotalCents),
+      };
+    });
+    const totalPrice = formatCents(
+      itemValues.reduce((sum, item) => sum + toCents(item.lineTotal), BigInt(0)),
+    );
+
+    const [createdOrder] = await db
+      .insert(orders)
+      .values({
+        userId,
+        status: seedOrder.status,
+        deliveryType: seedOrder.deliveryType,
+        deliveryAddress:
+          seedOrder.deliveryType === "delivery" ? seedOrder.deliveryAddress : null,
+        customerNote: seedOrder.note,
+        managerNote: seedOrder.managerNote ?? null,
+        totalPrice,
+        approvedByManagerId:
+          manager && ["approved", "in_progress", "completed"].includes(seedOrder.status)
+            ? manager.id
+            : null,
+        cancelRequestedAt:
+          seedOrder.status === "cancel_requested" || seedOrder.status === "cancelled"
+            ? createdAt
+            : null,
+        cancelApprovedAt: seedOrder.status === "cancelled" ? new Date() : null,
+        createdAt,
+        updatedAt: seedOrder.status === "completed" ? new Date() : createdAt,
+      })
+      .returning({ id: orders.id });
+
+    await db.insert(orderItems).values(
+      itemValues.map((item) => ({
+        ...item,
+        orderId: createdOrder.id,
+      })),
+    );
+  }
+}
+
+function toCents(value: string) {
+  const [whole = "0", fraction = ""] = value.split(".");
+  return BigInt(whole) * BigInt(100) + BigInt(fraction.padEnd(2, "0").slice(0, 2));
+}
+
+function formatCents(value: bigint) {
+  const zero = BigInt(0);
+  const centsPerUnit = BigInt(100);
+  const sign = value < zero ? "-" : "";
+  const absoluteValue = value < zero ? -value : value;
+  const whole = absoluteValue / centsPerUnit;
+  const fraction = (absoluteValue % centsPerUnit).toString().padStart(2, "0");
+
+  return `${sign}${whole}.${fraction}`;
+}
+
 main()
   .then(() => {
-    console.log("Seeded roles, demo users, categories, and products.");
+    console.log("Seeded roles, demo users, profile data, categories, products, and demo orders.");
   })
   .catch((error) => {
     console.error("Failed to seed database.");

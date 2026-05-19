@@ -1,4 +1,4 @@
-import { CheckCircle2, ChefHat, Clock3, Flame, Play, ReceiptText, UserRound } from "lucide-react";
+import { CheckCircle2, ChefHat, Clock3, Flame, ReceiptText, UserRound } from "lucide-react";
 
 import {
   completeOrderAction,
@@ -228,7 +228,7 @@ function StaffOrderCard({
           <form action={startPreparationAction}>
             <input type="hidden" name="orderId" value={order.id} />
             <StaffActionButton
-              icon={Play}
+              icon="play"
               idleLabel="Start Preparation"
               pendingLabel="Starting"
             />
@@ -238,7 +238,7 @@ function StaffOrderCard({
           <form action={completeOrderAction}>
             <input type="hidden" name="orderId" value={order.id} />
             <StaffActionButton
-              icon={CheckCircle2}
+              icon="check-circle"
               idleLabel="Mark as Completed"
               pendingLabel="Completing"
             />

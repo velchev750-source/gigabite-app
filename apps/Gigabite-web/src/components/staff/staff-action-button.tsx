@@ -1,18 +1,26 @@
 "use client";
 
+import { CheckCircle2, Play } from "lucide-react";
 import { useFormStatus } from "react-dom";
-import type { LucideIcon } from "lucide-react";
+
+type StaffActionIcon = "play" | "check-circle";
+
+const icons = {
+  play: Play,
+  "check-circle": CheckCircle2,
+};
 
 export function StaffActionButton({
   idleLabel,
   pendingLabel,
-  icon: Icon,
+  icon,
 }: {
   idleLabel: string;
   pendingLabel: string;
-  icon: LucideIcon;
+  icon: StaffActionIcon;
 }) {
   const { pending } = useFormStatus();
+  const Icon = icons[icon];
 
   return (
     <button

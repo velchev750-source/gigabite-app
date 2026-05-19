@@ -1,22 +1,30 @@
 "use client";
 
+import { Ban, ShieldCheck } from "lucide-react";
 import { useFormStatus } from "react-dom";
-import type { LucideIcon } from "lucide-react";
+
+type AdminActionIcon = "ban" | "shield-check";
+
+const icons = {
+  ban: Ban,
+  "shield-check": ShieldCheck,
+};
 
 export function AdminActionButton({
   idleLabel,
   pendingLabel,
-  icon: Icon,
+  icon,
   variant = "primary",
   confirmMessage,
 }: {
   idleLabel: string;
   pendingLabel: string;
-  icon: LucideIcon;
+  icon: AdminActionIcon;
   variant?: "primary" | "danger" | "secondary";
   confirmMessage?: string;
 }) {
   const { pending } = useFormStatus();
+  const Icon = icons[icon];
   const classes = {
     primary:
       "bg-amber-400 text-zinc-950 hover:bg-amber-300",

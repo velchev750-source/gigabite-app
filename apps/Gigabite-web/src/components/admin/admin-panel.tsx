@@ -6,7 +6,6 @@ import {
   Clock3,
   FilePenLine,
   ReceiptText,
-  ShieldCheck,
   UserRound,
   WalletCards,
 } from "lucide-react";
@@ -325,8 +324,8 @@ function ManagerOrderCard({
           <form action={approveOrderAction}>
             <input type="hidden" name="orderId" value={order.id} />
             <AdminActionButton
-              icon={ShieldCheck}
-              idleLabel="Approve Order"
+              icon="shield-check"
+              idleLabel="Confirm Order"
               pendingLabel="Approving"
             />
           </form>
@@ -393,7 +392,7 @@ function ManagerDecisionForm({
         />
       </label>
       <AdminActionButton
-        icon={Ban}
+        icon="ban"
         idleLabel={buttonLabel}
         pendingLabel={pendingLabel}
         variant="danger"
