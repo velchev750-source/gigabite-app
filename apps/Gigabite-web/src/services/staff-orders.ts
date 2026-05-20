@@ -5,6 +5,7 @@ import { orders } from "@/db/schema";
 import { requireRole } from "@/services/auth";
 
 export type StaffOrderStatus = "approved" | "in_progress" | "completed";
+export const STAFF_ORDER_PAGE_SIZE = 4;
 
 export class StaffOrderError extends Error {
   constructor(message: string) {
@@ -26,6 +27,58 @@ export async function getStaffOrders() {
     waiting,
     inProgress,
     completed,
+  };
+}
+
+export async function getStaffOrdersByStatus({
+  status,
+  page,
+  pageSize = STAFF_ORDER_PAGE_SIZE,
+}: {
+  status: StaffOrderStatus;
+  page: number;
+  pageSize?: number;
+}) {
+  await requireRole("staff");
+
+  const safePageSize = Math.max(1, Math.min(12, pageSize));
+  const safePage = Math.max(1, page);
+  const where = getStaffOrdersWhere(status);
+
+  const [orderRows, totalRows] = await Promise.all([
+    db.query.orders.findMany({
+      where,
+      orderBy: [desc(orders.createdAt)],
+      limit: safePageSize,
+      offset: (safePage - 1) * safePageSize,
+      with: {
+        user: {
+          columns: {
+            name: true,
+            phone: true,
+          },
+        },
+        items: {
+          columns: {
+            id: true,
+            productName: true,
+            quantity: true,
+          },
+        },
+      },
+    }),
+    db.select({ count: count() }).from(orders).where(where),
+  ]);
+
+  const totalCount = totalRows[0]?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+
+  return {
+    orders: orderRows,
+    totalCount,
+    page: Math.min(safePage, totalPages),
+    pageSize: safePageSize,
+    totalPages,
   };
 }
 
@@ -74,7 +127,7 @@ export async function completeOrder(orderId: number) {
 
 async function getOrdersByStatus(status: StaffOrderStatus) {
   return db.query.orders.findMany({
-    where: eq(orders.status, status),
+    where: getStaffOrdersWhere(status),
     orderBy: [desc(orders.createdAt)],
     with: {
       user: {
@@ -98,9 +151,33 @@ async function countOrdersByStatus(status: StaffOrderStatus) {
   const [result] = await db
     .select({ count: count() })
     .from(orders)
-    .where(eq(orders.status, status));
+    .where(getStaffOrdersWhere(status));
 
   return result?.count ?? 0;
+}
+
+function getTodayRange() {
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+  return { startOfToday, startOfTomorrow };
+}
+
+function getStaffOrdersWhere(status: StaffOrderStatus) {
+  if (status !== "completed") {
+    return eq(orders.status, status);
+  }
+
+  const { startOfToday, startOfTomorrow } = getTodayRange();
+
+  return and(
+    eq(orders.status, "completed"),
+    gte(orders.updatedAt, startOfToday),
+    lt(orders.updatedAt, startOfTomorrow),
+  );
 }
 
 async function updateStaffOrderStatus(

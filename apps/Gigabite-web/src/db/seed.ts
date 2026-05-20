@@ -232,6 +232,7 @@ const seedProducts = {
       name: "Classic Burger",
       description: "Beef patty with lettuce, tomato, onion, pickles, and house sauce.",
       price: "8.99",
+      isPromo: true,
     },
     {
       name: "Cheeseburger",
@@ -252,6 +253,7 @@ const seedProducts = {
       name: "Double Burger",
       description: "Two beef patties with cheddar, pickles, and house sauce.",
       price: "12.49",
+      isPromo: true,
     },
   ],
   Pizzas: [
@@ -264,6 +266,7 @@ const seedProducts = {
       name: "Pepperoni Pizza",
       description: "Tomato sauce, mozzarella, and spicy pepperoni slices.",
       price: "11.49",
+      isPromo: true,
     },
     {
       name: "Capricciosa Pizza",
@@ -274,6 +277,7 @@ const seedProducts = {
       name: "BBQ Chicken Pizza",
       description: "Chicken, barbecue sauce, mozzarella, red onion, and peppers.",
       price: "12.49",
+      isPromo: true,
     },
     {
       name: "Vegetarian Pizza",
@@ -291,6 +295,7 @@ const seedProducts = {
       name: "Cheesy Fries",
       description: "Crispy fries topped with warm cheddar cheese sauce.",
       price: "4.49",
+      isPromo: true,
     },
     {
       name: "Sweet Potato Fries",
@@ -333,6 +338,7 @@ const seedProducts = {
       name: "Iced Tea",
       description: "Refreshing chilled iced tea.",
       price: "2.99",
+      isPromo: true,
     },
   ],
 } satisfies Record<
@@ -341,6 +347,7 @@ const seedProducts = {
     name: string;
     description: string;
     price: string;
+    isPromo?: boolean;
   }>
 >;
 
@@ -493,16 +500,30 @@ async function insertMissingProducts(categoryIds: Map<string, number>) {
         name: product.name,
         description: product.description,
         price: product.price,
+        isPromo: product.isPromo ?? false,
         isActive: true,
         sortOrder: index + 1,
       }));
   });
 
   if (!missingProducts.length) {
+    await syncSeedProductPromoFlags();
     return;
   }
 
   await db.insert(products).values(missingProducts);
+  await syncSeedProductPromoFlags();
+}
+
+async function syncSeedProductPromoFlags() {
+  for (const categoryProducts of Object.values(seedProducts)) {
+    for (const product of categoryProducts) {
+      await db
+        .update(products)
+        .set({ isPromo: product.isPromo ?? false })
+        .where(eq(products.name, product.name));
+    }
+  }
 }
 
 async function seedDemoOrders() {

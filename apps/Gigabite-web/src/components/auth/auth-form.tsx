@@ -41,7 +41,13 @@ export function AuthForm({ mode }: AuthFormProps) {
         return;
       }
 
-      router.push(data.redirectTo || "/account");
+      const nextPath = new URLSearchParams(window.location.search).get("next");
+      const redirectTo =
+        mode === "login" && nextPath?.startsWith("/") && !nextPath.startsWith("//")
+          ? nextPath
+          : data.redirectTo || "/account";
+
+      router.push(redirectTo);
       router.refresh();
     } catch {
       setError("Unable to connect. Please try again.");

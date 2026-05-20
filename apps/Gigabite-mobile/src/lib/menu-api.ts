@@ -6,6 +6,7 @@ export type MobileMenuProduct = {
   description: string;
   price: number;
   image_url: string | null;
+  is_promo: boolean;
   category_id: number;
   category_name: string;
   sort_order: number;
@@ -24,5 +25,5 @@ export type MobileMenuResponse = {
 };
 
 export async function getMobileMenu() {
-  return apiGet<MobileMenuResponse>('/api/mobile/menu');
+  return apiGet<MobileMenuResponse>('/api/mobile/menu', { skipAuth: true });
 }

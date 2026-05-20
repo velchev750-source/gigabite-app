@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -8,14 +9,17 @@ import {
   Plus,
   ShoppingBag,
   ShoppingCart,
-  SlidersHorizontal,
-  Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  loadWebCart,
+  saveWebCart,
+  updateWebCartQuantity,
+  type WebCart,
+  type WebCartItem,
+} from "@/lib/web-cart";
 import type { MenuCategory, MenuProduct } from "@/services/menu";
-
-const CART_STORAGE_KEY = "gigabite_cart";
 
 const fallbackImages: Record<string, string> = {
   Burgers:
@@ -26,11 +30,6 @@ const fallbackImages: Record<string, string> = {
     "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=85",
   Drinks:
     "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=900&q=85",
-};
-
-type CartItem = {
-  product: MenuProduct;
-  quantity: number;
 };
 
 function formatPrice(price: number) {
@@ -54,7 +53,7 @@ export function MenuPage({
   const router = useRouter();
   const [activeCategoryId, setActiveCategoryId] = useState<number | "all">("all");
   const [quantities, setQuantities] = useState<Record<number, number>>({});
-  const [cart, setCart] = useState<Record<number, CartItem>>({});
+  const [cart, setCart] = useState<WebCart>({});
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [cartMessage, setCartMessage] = useState<string | null>(null);
 
@@ -83,23 +82,10 @@ export function MenuPage({
   );
 
   useEffect(() => {
-    const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
-
-    if (!savedCart) {
+    queueMicrotask(() => {
+      setCart(loadWebCart());
       queueMicrotask(() => setIsCartLoaded(true));
-      return;
-    }
-
-    try {
-      const parsedCart = JSON.parse(savedCart) as Record<number, CartItem>;
-      queueMicrotask(() => {
-        setCart(parsedCart);
-        setIsCartLoaded(true);
-      });
-    } catch {
-      window.localStorage.removeItem(CART_STORAGE_KEY);
-      queueMicrotask(() => setIsCartLoaded(true));
-    }
+    });
   }, []);
 
   useEffect(() => {
@@ -107,7 +93,7 @@ export function MenuPage({
       return;
     }
 
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    saveWebCart(cart);
   }, [cart, isCartLoaded]);
 
   function getQuantity(productId: number) {
@@ -122,16 +108,6 @@ export function MenuPage({
   }
 
   function addToCart(product: MenuProduct) {
-    if (!userRole) {
-      setCartMessage("Please log in or register before adding items to your cart.");
-      return;
-    }
-
-    if (userRole !== "user") {
-      setCartMessage("Menu ordering is available for customer accounts.");
-      return;
-    }
-
     const quantity = getQuantity(product.id);
 
     setCart((current) => {
@@ -146,6 +122,14 @@ export function MenuPage({
       };
     });
     setCartMessage(`${product.name} added to your cart.`);
+  }
+
+  function updateCartItemQuantity(productId: number, quantity: number) {
+    setCart((current) => updateWebCartQuantity(current, productId, quantity));
+  }
+
+  function removeCartItem(productId: number) {
+    setCart((current) => updateWebCartQuantity(current, productId, 0));
   }
 
   function goToCheckout() {
@@ -169,10 +153,6 @@ export function MenuPage({
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.24),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(244,63,94,0.22),transparent_34%)]" />
           <div className="relative mx-auto max-w-7xl">
             <div className="max-w-3xl">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm font-bold text-amber-200">
-                <Sparkles className="size-4" aria-hidden="true" />
-                Fresh from the Gigabite kitchen
-              </div>
               <h1 className="text-5xl font-black leading-tight text-white sm:text-6xl">
                 Our Menu
               </h1>
@@ -191,10 +171,6 @@ export function MenuPage({
 
         <section className="bg-zinc-950 px-4 py-10 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-8 flex items-center gap-3 text-zinc-300">
-              <SlidersHorizontal className="size-5 text-amber-300" aria-hidden="true" />
-              <p className="text-sm font-semibold uppercase">Filter by category</p>
-            </div>
             <div className="flex gap-3 overflow-x-auto pb-3">
               <button
                 onClick={() => setActiveCategoryId("all")}
@@ -223,7 +199,7 @@ export function MenuPage({
           </div>
         </section>
 
-        <section className="bg-zinc-900 px-4 pb-28 pt-8 sm:px-6 lg:px-8 lg:pb-20">
+        <section id="cart" className="scroll-mt-24 bg-zinc-900 px-4 pb-28 pt-8 sm:px-6 lg:px-8 lg:pb-20">
           <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_360px]">
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {visibleProducts.map((product) => (
@@ -242,6 +218,11 @@ export function MenuPage({
                     <span className="absolute left-4 top-4 rounded-md bg-zinc-950/80 px-3 py-1 text-xs font-black text-amber-200 backdrop-blur">
                       {product.categoryName}
                     </span>
+                    {product.isPromo ? (
+                      <span className="absolute right-4 top-4 rounded-md bg-rose-500/90 px-3 py-1 text-xs font-black text-white backdrop-blur">
+                        Promo
+                      </span>
+                    ) : null}
                   </div>
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
@@ -293,11 +274,15 @@ export function MenuPage({
             </div>
 
             <aside className="hidden lg:block">
-              <div className="sticky top-24 rounded-lg border border-white/10 bg-zinc-950 p-6 shadow-2xl shadow-black/30">
+              <div className="rounded-lg border border-white/10 bg-zinc-950 p-6 shadow-2xl shadow-black/30 lg:sticky lg:top-24">
                 <CartSummary
                   cartItems={cartItems}
                   totalItems={totalItems}
                   totalPrice={totalPrice}
+                  userRole={userRole}
+                  onDecrease={(item) => updateCartItemQuantity(item.product.id, item.quantity - 1)}
+                  onIncrease={(item) => updateCartItemQuantity(item.product.id, item.quantity + 1)}
+                  onRemove={(item) => removeCartItem(item.product.id)}
                   onCheckout={goToCheckout}
                 />
               </div>
@@ -313,12 +298,17 @@ export function MenuPage({
               <p className="text-xl font-black text-white">
                 {totalItems} items / {formatPrice(totalPrice)}
               </p>
+              {!userRole ? (
+                <p className="mt-1 text-xs font-semibold text-zinc-400">
+                  Sign in to place your order.
+                </p>
+              ) : null}
             </div>
             <button
               onClick={goToCheckout}
               className="inline-flex items-center gap-2 rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950"
             >
-              Checkout
+              {userRole ? "Checkout" : "Sign In"}
               <ArrowRight className="size-4" aria-hidden="true" />
             </button>
           </div>
@@ -332,11 +322,19 @@ function CartSummary({
   cartItems,
   totalItems,
   totalPrice,
+  userRole,
+  onDecrease,
+  onIncrease,
+  onRemove,
   onCheckout,
 }: {
-  cartItems: CartItem[];
+  cartItems: WebCartItem[];
   totalItems: number;
   totalPrice: number;
+  userRole: "user" | "staff" | "manager" | null;
+  onDecrease: (item: WebCartItem) => void;
+  onIncrease: (item: WebCartItem) => void;
+  onRemove: (item: WebCartItem) => void;
   onCheckout: () => void;
 }) {
   return (
@@ -355,15 +353,47 @@ function CartSummary({
           cartItems.map((item) => (
             <div
               key={item.product.id}
-              className="flex items-start justify-between gap-4 rounded-md bg-white/[0.04] p-3"
+              className="grid gap-3 rounded-md bg-white/[0.04] p-3"
             >
-              <div>
-                <p className="text-sm font-black text-white">{item.product.name}</p>
-                <p className="mt-1 text-xs text-zinc-400">Qty {item.quantity}</p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-black text-white">{item.product.name}</p>
+                  <p className="mt-1 text-xs text-zinc-400">Qty {item.quantity}</p>
+                </div>
+                <p className="text-sm font-black text-emerald-200">
+                  {formatPrice(item.product.price * item.quantity)}
+                </p>
               </div>
-              <p className="text-sm font-black text-emerald-200">
-                {formatPrice(item.product.price * item.quantity)}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="grid grid-cols-3 overflow-hidden rounded-md border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => onDecrease(item)}
+                    className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
+                    aria-label={`Decrease ${item.product.name} quantity`}
+                  >
+                    <Minus className="size-4" aria-hidden="true" />
+                  </button>
+                  <span className="grid size-9 place-items-center bg-white/5 text-sm font-black text-white">
+                    {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onIncrease(item)}
+                    className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
+                    aria-label={`Increase ${item.product.name} quantity`}
+                  >
+                    <Plus className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(item)}
+                  className="rounded-md px-3 py-2 text-xs font-black text-rose-200 transition hover:bg-rose-500/10"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           ))
         ) : (
@@ -379,13 +409,27 @@ function CartSummary({
             {formatPrice(totalPrice)}
           </span>
         </div>
-        <button
-          onClick={onCheckout}
-          disabled={!cartItems.length}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-5 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Go to Checkout <ArrowRight className="size-4" aria-hidden="true" />
-        </button>
+        {!userRole ? (
+          <>
+            <p className="mt-5 text-sm font-semibold text-zinc-400">
+              Sign in to place your order.
+            </p>
+            <Link
+              href="/login?next=/checkout"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-5 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
+            >
+              Sign In <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          </>
+        ) : (
+          <button
+            onClick={onCheckout}
+            disabled={!cartItems.length}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-5 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Go to Checkout <ArrowRight className="size-4" aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );

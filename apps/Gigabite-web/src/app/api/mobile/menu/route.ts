@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getPublicImageUrl } from "@/lib/get-public-image-url";
 import { getActiveMenu } from "@/services/menu";
 
 export async function GET() {
@@ -18,7 +19,8 @@ export async function GET() {
             name: product.name,
             description: product.description,
             price: product.price,
-            image_url: product.imageUrl,
+            image_url: getPublicImageUrl(product.imageUrl),
+            is_promo: product.isPromo,
             category_id: product.categoryId,
             category_name: category.name,
             sort_order: product.sortOrder,

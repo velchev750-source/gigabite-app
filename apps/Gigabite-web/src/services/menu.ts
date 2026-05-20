@@ -9,6 +9,7 @@ export type MenuProduct = {
   description: string;
   price: number;
   imageUrl: string | null;
+  isPromo: boolean;
   sortOrder: number;
 };
 
@@ -18,6 +19,10 @@ export type MenuCategory = {
   description: string;
   sortOrder: number;
   products: MenuProduct[];
+};
+
+export type PromoProduct = MenuProduct & {
+  categoryName: string;
 };
 
 export async function getActiveMenu(): Promise<MenuCategory[]> {
@@ -47,6 +52,7 @@ export async function getActiveMenu(): Promise<MenuCategory[]> {
       description: products.description,
       price: products.price,
       imageUrl: products.imageUrl,
+      isPromo: products.isPromo,
       sortOrder: products.sortOrder,
     })
     .from(products)
@@ -75,5 +81,33 @@ export async function getActiveMenu(): Promise<MenuCategory[]> {
     ...category,
     description: category.description ?? "",
     products: productsByCategory.get(category.id) ?? [],
+  }));
+}
+
+export async function getPromoProducts(limit = 6): Promise<PromoProduct[]> {
+  const { db } = await import("@/db");
+
+  const promoProducts = await db
+    .select({
+      id: products.id,
+      categoryId: products.categoryId,
+      categoryName: categories.name,
+      name: products.name,
+      description: products.description,
+      price: products.price,
+      imageUrl: products.imageUrl,
+      isPromo: products.isPromo,
+      sortOrder: products.sortOrder,
+    })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(and(eq(products.isActive, true), eq(products.isPromo, true)))
+    .orderBy(asc(products.sortOrder), asc(products.name))
+    .limit(limit);
+
+  return promoProducts.map((product) => ({
+    ...product,
+    description: product.description ?? "",
+    price: Number(product.price),
   }));
 }

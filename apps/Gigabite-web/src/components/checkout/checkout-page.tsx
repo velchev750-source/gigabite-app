@@ -2,19 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, MapPin, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin, Minus, Plus, ShoppingBag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-const CART_STORAGE_KEY = "gigabite_cart";
-
-type StoredCartItem = {
-  product: {
-    id: number;
-    name: string;
-    price: number;
-  };
-  quantity: number;
-};
+import {
+  clearWebCart,
+  loadWebCart,
+  saveWebCart,
+  updateWebCartQuantity,
+  type WebCart,
+  type WebCartItem,
+} from "@/lib/web-cart";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-US", {
@@ -29,7 +27,8 @@ export function CheckoutPage({
   prefilledDeliveryAddress: string;
 }) {
   const router = useRouter();
-  const [cartItems, setCartItems] = useState<StoredCartItem[]>([]);
+  const [cart, setCart] = useState<WebCart>({});
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState(prefilledDeliveryAddress);
   const [customerNote, setCustomerNote] = useState("");
@@ -37,20 +36,21 @@ export function CheckoutPage({
   const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
-    const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+    queueMicrotask(() => {
+      setCart(loadWebCart());
+      setIsCartLoaded(true);
+    });
+  }, []);
 
-    if (!savedCart) {
+  useEffect(() => {
+    if (!isCartLoaded) {
       return;
     }
 
-    try {
-      const parsedCart = JSON.parse(savedCart) as Record<string, StoredCartItem>;
-      queueMicrotask(() => setCartItems(Object.values(parsedCart)));
-    } catch {
-      window.localStorage.removeItem(CART_STORAGE_KEY);
-    }
-  }, []);
+    saveWebCart(cart);
+  }, [cart, isCartLoaded]);
 
+  const cartItems = useMemo(() => Object.values(cart), [cart]);
   const totalPrice = useMemo(
     () =>
       cartItems.reduce(
@@ -59,6 +59,14 @@ export function CheckoutPage({
       ),
     [cartItems],
   );
+
+  function updateCartItemQuantity(productId: number, quantity: number) {
+    setCart((current) => updateWebCartQuantity(current, productId, quantity));
+  }
+
+  function removeCartItem(productId: number) {
+    setCart((current) => updateWebCartQuantity(current, productId, 0));
+  }
 
   async function submitOrder(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -94,7 +102,7 @@ export function CheckoutPage({
         return;
       }
 
-      window.localStorage.removeItem(CART_STORAGE_KEY);
+      clearWebCart();
       router.push("/account");
       router.refresh();
     } finally {
@@ -206,27 +214,24 @@ export function CheckoutPage({
             <div className="grid gap-3">
               {cartItems.length ? (
                 cartItems.map((item) => (
-                  <div
+                  <CheckoutSummaryItem
                     key={item.product.id}
-                    className="flex justify-between gap-4 rounded-md bg-white/[0.04] p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-black text-white">
-                        {item.product.name}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-400">
-                        Qty {item.quantity}
-                      </p>
-                    </div>
-                    <p className="text-sm font-black text-emerald-200">
-                      {formatPrice(item.product.price * item.quantity)}
-                    </p>
-                  </div>
+                    item={item}
+                    onDecrease={() => updateCartItemQuantity(item.product.id, item.quantity - 1)}
+                    onIncrease={() => updateCartItemQuantity(item.product.id, item.quantity + 1)}
+                    onRemove={() => removeCartItem(item.product.id)}
+                  />
                 ))
               ) : (
-                <p className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
-                  Your cart is empty.
-                </p>
+                <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+                  <p>Your cart is empty.</p>
+                  <Link
+                    href="/menu#cart"
+                    className="mt-3 inline-flex font-black text-amber-300 transition hover:text-amber-200"
+                  >
+                    Return to menu
+                  </Link>
+                </div>
               )}
             </div>
             <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
@@ -239,5 +244,61 @@ export function CheckoutPage({
         </div>
       </div>
     </main>
+  );
+}
+
+function CheckoutSummaryItem({
+  item,
+  onDecrease,
+  onIncrease,
+  onRemove,
+}: {
+  item: WebCartItem;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="grid gap-3 rounded-md bg-white/[0.04] p-3">
+      <div className="flex justify-between gap-4">
+        <div>
+          <p className="text-sm font-black text-white">{item.product.name}</p>
+          <p className="mt-1 text-xs text-zinc-400">Qty {item.quantity}</p>
+        </div>
+        <p className="text-sm font-black text-emerald-200">
+          {formatPrice(item.product.price * item.quantity)}
+        </p>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="grid grid-cols-3 overflow-hidden rounded-md border border-white/10">
+          <button
+            type="button"
+            onClick={onDecrease}
+            className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
+            aria-label={`Decrease ${item.product.name} quantity`}
+          >
+            <Minus className="size-4" aria-hidden="true" />
+          </button>
+          <span className="grid size-9 place-items-center bg-white/5 text-sm font-black text-white">
+            {item.quantity}
+          </span>
+          <button
+            type="button"
+            onClick={onIncrease}
+            className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
+            aria-label={`Increase ${item.product.name} quantity`}
+          >
+            <Plus className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded-md px-3 py-2 text-xs font-black text-rose-200 transition hover:bg-rose-500/10"
+        >
+          Remove
+        </button>
+      </div>
+    </div>
   );
 }

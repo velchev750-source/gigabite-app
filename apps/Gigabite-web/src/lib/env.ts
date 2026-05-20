@@ -9,6 +9,11 @@ const jwtEnvSchema = z.object({
   NODE_ENV: z.string().optional(),
 });
 
+const publicAppEnvSchema = z.object({
+  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  VERCEL_URL: z.string().optional(),
+});
+
 export function getDatabaseUrl() {
   return databaseEnvSchema.parse(process.env).DATABASE_URL;
 }
@@ -25,4 +30,18 @@ export function getJwtSecret() {
   }
 
   return "gigabite-development-secret";
+}
+
+export function getPublicAppUrl() {
+  const env = publicAppEnvSchema.parse(process.env);
+
+  if (env.NEXT_PUBLIC_APP_URL) {
+    return env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  }
+
+  if (env.VERCEL_URL) {
+    return `https://${env.VERCEL_URL.replace(/\/$/, "")}`;
+  }
+
+  return "http://localhost:3000";
 }

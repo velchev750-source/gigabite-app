@@ -82,6 +82,7 @@ export const products = pgTable(
     price: numeric("price", { precision: 10, scale: 2 }).notNull(),
     imageUrl: text("image_url"),
     isActive: boolean("is_active").default(true).notNull(),
+    isPromo: boolean("is_promo").default(false).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     ...timestamps,
   },

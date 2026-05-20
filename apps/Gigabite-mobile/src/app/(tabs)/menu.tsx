@@ -187,22 +187,33 @@ function MenuProductCard({
   onDecrease: () => void;
   onIncrease: () => void;
 }) {
+  const [hasImageError, setHasImageError] = useState(false);
+  const shouldShowImage = Boolean(product.image_url) && !hasImageError;
+
   return (
     <View style={styles.productCard}>
       <View style={styles.productImageWrap}>
-        {product.image_url ? (
-          <Image source={{ uri: product.image_url }} style={styles.productImage} resizeMode="cover" />
+        {shouldShowImage ? (
+          <Image
+            source={{ uri: product.image_url ?? "" }}
+            style={styles.productImage}
+            resizeMode="cover"
+            onError={() => setHasImageError(true)}
+          />
         ) : (
           <View style={styles.productImagePlaceholder}>
             <ImageIcon color={GigabiteColors.rose} size={34} />
             <Text style={styles.productImageText}>{product.category_name}</Text>
           </View>
         )}
+        <View style={styles.imageBadges}>
+          <StatusBadge label={product.category_name} tone={getBadgeTone(product.category_name)} />
+          {product.is_promo ? <StatusBadge label="Promo" tone="rose" /> : null}
+        </View>
       </View>
 
       <View style={styles.productBody}>
         <View style={styles.productMetaRow}>
-          <StatusBadge label={product.category_name} tone={getBadgeTone(product.category_name)} />
           <Text style={styles.price}>{formatPrice(product.price)}</Text>
         </View>
         <Text style={styles.productName}>{product.name}</Text>
@@ -387,6 +398,14 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
   },
+  imageBadges: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    left: Spacing.three,
+    position: 'absolute',
+    right: Spacing.three,
+    top: Spacing.three,
+  },
   productImagePlaceholder: {
     alignItems: 'center',
     backgroundColor: GigabiteColors.roseSoft,
@@ -406,7 +425,7 @@ const styles = StyleSheet.create({
   productMetaRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
   },
   price: {
     color: GigabiteColors.emerald,

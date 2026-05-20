@@ -19,8 +19,6 @@ import {
   Salad,
   Send,
   ShieldCheck,
-  ShoppingCart,
-  Sparkles,
   Star,
   Store,
   UtensilsCrossed,
@@ -28,7 +26,10 @@ import {
 } from "lucide-react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { NavbarCartLink } from "@/components/cart/navbar-cart-link";
+import { PromoDealsSection } from "@/components/home/promo-deals-section";
 import { getCurrentUser, getDashboardPath } from "@/services/auth";
+import { getPromoProducts } from "@/services/menu";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -66,51 +67,6 @@ const categories = [
     image:
       "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=900&q=85",
     icon: UtensilsCrossed,
-  },
-];
-
-const products = [
-  {
-    name: "Giga Smash Burger",
-    description: "Double beef, cheddar, pickles, crispy onion, house sauce.",
-    price: "$12.90",
-    image:
-      "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Hot Honey Pizza",
-    description: "Pepperoni, mozzarella, chili honey, basil, tomato base.",
-    price: "$15.40",
-    image:
-      "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Loaded Street Fries",
-    description: "Crispy fries, smoked cheese, jalapenos, bacon crumbs.",
-    price: "$8.80",
-    image:
-      "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Citrus Spark Cooler",
-    description: "Lemon, orange, mint, sparkling soda, crushed ice.",
-    price: "$4.60",
-    image:
-      "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Crispy Chicken Stack",
-    description: "Buttermilk chicken, slaw, pepper mayo, toasted bun.",
-    price: "$11.70",
-    image:
-      "https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Green Power Bowl",
-    description: "Grilled vegetables, avocado, grains, herbs, lime dressing.",
-    price: "$10.50",
-    image:
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=85",
   },
 ];
 
@@ -222,15 +178,7 @@ export async function Header() {
               </Link>
             </>
           )}
-          <button
-            className="relative grid size-11 place-items-center rounded-md border border-white/10 bg-white/5 text-white transition hover:border-amber-300/60 hover:text-amber-300"
-            aria-label="Open cart"
-          >
-            <ShoppingCart className="size-5" aria-hidden="true" />
-            <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-rose-500 text-xs font-bold text-white">
-              2
-            </span>
-          </button>
+          <NavbarCartLink />
         </div>
         <div className="lg:hidden">
           <input id="mobile-menu" type="checkbox" className="peer sr-only" />
@@ -286,9 +234,7 @@ export async function Header() {
                   </Link>
                 </>
               )}
-              <button className="grid size-12 place-items-center rounded-md border border-white/10 text-white">
-                <ShoppingCart className="size-5" aria-hidden="true" />
-              </button>
+              <NavbarCartLink className="relative grid size-12 place-items-center rounded-md border border-white/10 text-white" />
             </div>
           </div>
         </div>
@@ -312,10 +258,6 @@ function Hero() {
       <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-zinc-950 to-transparent" />
       <div className="relative mx-auto flex min-h-[calc(100svh-68px)] max-w-7xl items-center px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm font-bold text-amber-200">
-            <Sparkles className="size-4" aria-hidden="true" />
-            Fresh drops, bold bites, zero waiting around
-          </div>
           <h1 className="text-5xl font-black leading-[0.95] text-white sm:text-6xl lg:text-7xl">
             Big flavor for fast appetites.
           </h1>
@@ -328,7 +270,7 @@ function Hero() {
               href="#products"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-400 px-6 py-4 text-base font-black text-zinc-950 shadow-xl shadow-amber-500/25 transition hover:-translate-y-1 hover:bg-amber-300"
             >
-              Order Now <ArrowRight className="size-5" aria-hidden="true" />
+              Promo Deals <ArrowRight className="size-5" aria-hidden="true" />
             </Link>
             <Link
               href="#categories"
@@ -336,13 +278,6 @@ function Hero() {
             >
               View Menu <ChevronRight className="size-5" aria-hidden="true" />
             </Link>
-          </div>
-        </div>
-        <div className="pointer-events-none absolute right-4 top-24 hidden w-72 lg:block">
-          <div className="animate-float rounded-lg border border-white/10 bg-white/10 p-4 text-white shadow-2xl backdrop-blur-xl">
-            <p className="text-sm font-bold text-amber-200">Chef pick</p>
-            <p className="mt-1 text-2xl font-black">Smash combo</p>
-            <p className="mt-3 text-sm text-zinc-200">Burger + fries + drink</p>
           </div>
         </div>
         <div className="pointer-events-none absolute bottom-20 right-8 hidden rounded-lg border border-emerald-300/30 bg-emerald-400/15 px-5 py-4 text-emerald-100 shadow-2xl backdrop-blur-xl md:block">
@@ -384,37 +319,6 @@ function CategoryCard({ category }: { category: (typeof categories)[number] }) {
         </p>
         <button className="mt-5 inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-300">
           Explore <ArrowRight className="size-4" aria-hidden="true" />
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function ProductCard({ product }: { product: (typeof products)[number] }) {
-  return (
-    <article className="group overflow-hidden rounded-lg border border-white/10 bg-zinc-900 shadow-xl shadow-black/25 transition duration-300 hover:-translate-y-2 hover:border-rose-400/40">
-      <div className="relative h-56 overflow-hidden">
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="object-cover transition duration-500 group-hover:scale-110"
-        />
-      </div>
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <h3 className="text-lg font-black text-white">{product.name}</h3>
-          <span className="rounded-md bg-emerald-400/15 px-3 py-1 text-sm font-black text-emerald-200">
-            {product.price}
-          </span>
-        </div>
-        <p className="mt-3 min-h-12 text-sm leading-6 text-zinc-300">
-          {product.description}
-        </p>
-        <button className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-rose-500 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-400">
-          <ShoppingCart className="size-4" aria-hidden="true" />
-          Add to Cart
         </button>
       </div>
     </article>
@@ -572,7 +476,9 @@ export function Footer() {
   );
 }
 
-export function HomePage() {
+export async function HomePage() {
+  const promoProducts = await getPromoProducts();
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <Header />
@@ -593,14 +499,10 @@ export function HomePage() {
         <section id="products" className="bg-zinc-900 px-4 py-20 sm:px-6 lg:px-8">
           <SectionHeader
             eyebrow="Kitchen highlights"
-            title="Featured Products"
-            text="Mock menu items inspired by the Gigabite categories, ready for cart logic later."
+            title="Promo Deals"
+            text="Active Gigabite offers pulled straight from the current menu."
           />
-          <div className="mx-auto grid max-w-7xl gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {products.map((product) => (
-              <ProductCard key={product.name} product={product} />
-            ))}
-          </div>
+          <PromoDealsSection products={promoProducts} />
         </section>
         <PromotionsBanner />
         <section id="why-gigabite" className="bg-zinc-900 px-4 py-20 sm:px-6 lg:px-8">
