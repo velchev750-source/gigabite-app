@@ -27,3 +27,13 @@ export type MobileMenuResponse = {
 export async function getMobileMenu() {
   return apiGet<MobileMenuResponse>('/api/mobile/menu', { skipAuth: true });
 }
+
+export async function getMobilePromoProducts(limit = 6) {
+  const menu = await getMobileMenu();
+
+  return menu.categories
+    .flatMap((category) => category.products)
+    .filter((product) => product.is_promo)
+    .sort((firstProduct, secondProduct) => firstProduct.sort_order - secondProduct.sort_order)
+    .slice(0, limit);
+}

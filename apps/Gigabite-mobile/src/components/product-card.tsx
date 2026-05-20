@@ -9,11 +9,13 @@ export function ProductCard({
   description,
   price,
   tag,
+  onAdd,
 }: {
   name: string;
   description: string;
   price: string;
   tag?: string;
+  onAdd?: () => void;
 }) {
   return (
     <View style={styles.card}>
@@ -26,7 +28,9 @@ export function ProductCard({
           <Text style={styles.price}>{price}</Text>
         </View>
         <Text style={styles.description}>{description}</Text>
-        <Pressable style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+        <Pressable
+          onPress={onAdd}
+          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
           <Plus color={GigabiteColors.background} size={18} />
           <Text style={styles.addText}>Add</Text>
         </Pressable>

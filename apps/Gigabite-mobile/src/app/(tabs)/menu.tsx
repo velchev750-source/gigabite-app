@@ -17,6 +17,7 @@ import { ScreenContainer } from '@/components/screen-container';
 import { SectionTitle } from '@/components/section-title';
 import { StatusBadge } from '@/components/status-badge';
 import { GigabiteColors, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
 import { useCart } from '@/context/cart-context';
 import { getMobileMenu, type MobileMenuCategory, type MobileMenuProduct } from '@/lib/menu-api';
 import { blurActiveWebElement } from '@/lib/web-focus';
@@ -26,6 +27,8 @@ export default function MenuScreen() {
   const [activeCategoryId, setActiveCategoryId] = useState<number | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loginMessage, setLoginMessage] = useState<string | null>(null);
+  const { user } = useAuth();
   const cart = useCart();
 
   async function loadMenu() {
@@ -55,6 +58,18 @@ export default function MenuScreen() {
 
     return allProducts.filter((product) => product.category_id === activeCategoryId);
   }, [activeCategoryId, categories]);
+
+  function requireLoginBeforeCart() {
+    if (user) {
+      setLoginMessage(null);
+      return true;
+    }
+
+    setLoginMessage('Log in before adding items to your cart.');
+    blurActiveWebElement();
+    router.push('/profile');
+    return false;
+  }
 
   return (
     <View style={styles.screen}>
@@ -86,6 +101,7 @@ export default function MenuScreen() {
               title={activeCategoryId === 'all' ? 'All products' : getCategoryName(categories, activeCategoryId)}
               subtitle={`${products.length} item${products.length === 1 ? '' : 's'} available`}
             />
+            {loginMessage ? <Text style={styles.loginMessage}>{loginMessage}</Text> : null}
 
             {products.length ? (
               <View style={styles.productList}>
@@ -97,9 +113,17 @@ export default function MenuScreen() {
                       key={product.id}
                       product={product}
                       quantity={quantity}
-                      onAdd={() => cart.addItem(product)}
+                      onAdd={() => {
+                        if (requireLoginBeforeCart()) {
+                          cart.addItem(product);
+                        }
+                      }}
                       onDecrease={() => cart.decreaseItem(product)}
-                      onIncrease={() => cart.increaseItem(product)}
+                      onIncrease={() => {
+                        if (requireLoginBeforeCart()) {
+                          cart.increaseItem(product);
+                        }
+                      }}
                     />
                   );
                 })}
@@ -494,7 +518,7 @@ const styles = StyleSheet.create({
     borderColor: GigabiteColors.border,
     borderRadius: 18,
     borderWidth: 1,
-    bottom: 88,
+    bottom: 84,
     flexDirection: 'row',
     gap: Spacing.three,
     justifyContent: 'space-between',
@@ -502,6 +526,7 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
     position: 'absolute',
     right: Spacing.three,
+    zIndex: 20,
   },
   floatingCartInfo: {
     alignItems: 'center',
@@ -527,6 +552,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     marginTop: Spacing.one,
+  },
+  loginMessage: {
+    backgroundColor: GigabiteColors.amberSoft,
+    borderColor: `${GigabiteColors.amber}55`,
+    borderRadius: 12,
+    borderWidth: 1,
+    color: GigabiteColors.amber,
+    fontSize: 13,
+    fontWeight: '900',
+    lineHeight: 18,
+    padding: Spacing.three,
   },
   stateCard: {
     alignItems: 'center',
