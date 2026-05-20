@@ -15,8 +15,21 @@ export type MobileLoginResponse = {
   user: MobileAuthUser;
 };
 
+export type MobileRegisterInput = {
+  name: string;
+  email: string;
+  phone?: string | null;
+  defaultDeliveryAddress?: string | null;
+  password: string;
+  confirmPassword: string;
+};
+
 export async function loginMobileUser(input: { email: string; password: string }) {
   return apiPost<MobileLoginResponse>('/api/mobile/auth/login', input, { skipAuth: true });
+}
+
+export async function registerMobileUser(input: MobileRegisterInput) {
+  return apiPost<MobileLoginResponse>('/api/mobile/auth/register', input, { skipAuth: true });
 }
 
 export async function getMobileAuthUser(token: string) {

@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     borderColor: GigabiteColors.border,
     borderRadius: 18,
     borderWidth: 1,
-    bottom: 84,
+    bottom: 0,
     flexDirection: 'row',
     gap: Spacing.three,
     justifyContent: 'space-between',

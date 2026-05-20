@@ -9,7 +9,13 @@ import React, {
 } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { getMobileAuthUser, loginMobileUser, type MobileAuthUser } from '@/lib/auth-api';
+import {
+  getMobileAuthUser,
+  loginMobileUser,
+  registerMobileUser,
+  type MobileAuthUser,
+  type MobileRegisterInput,
+} from '@/lib/auth-api';
 import { getAuthToken, removeAuthToken, saveAuthToken } from '@/lib/auth-storage';
 import { blurActiveWebElement } from '@/lib/web-focus';
 import { GigabiteColors, Spacing } from '@/constants/theme';
@@ -20,6 +26,7 @@ type AuthContextValue = {
   isLoggingIn: boolean;
   isRestoringSession: boolean;
   login: (input: { email: string; password: string }) => Promise<void>;
+  register: (input: MobileRegisterInput) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -80,6 +87,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
           const response = await loginMobileUser(input);
+          await saveAuthToken(response.token);
+          setUser(response.user);
+          setToken(response.token);
+        } finally {
+          setIsLoggingIn(false);
+        }
+      },
+      register: async (input) => {
+        setIsLoggingIn(true);
+
+        try {
+          const response = await registerMobileUser(input);
           await saveAuthToken(response.token);
           setUser(response.user);
           setToken(response.token);
