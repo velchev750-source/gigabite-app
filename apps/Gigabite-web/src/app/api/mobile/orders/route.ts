@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 
+import type { Order, OrderItem } from "@/db/schema";
 import { getValidationMessage } from "@/lib/validations/form";
-import { createOrderForAuthenticatedCustomer, OrderValidationError } from "@/services/orders";
+import {
+  ACTIVE_ORDER_STATUSES,
+  createOrderForAuthenticatedCustomer,
+  getOrdersForAuthenticatedCustomer,
+  OrderValidationError,
+} from "@/services/orders";
 import { getMobileAuthUser, mobileOptionsResponse, withMobileCors } from "../auth/utils";
 
 const mobileOrderItemSchema = z.object({
@@ -42,6 +48,47 @@ const mobileCreateOrderSchema = z
     message: "Delivery address is required for delivery orders.",
     path: ["delivery_address"],
   });
+
+type OrderWithItems = Order & { items: OrderItem[] };
+
+export async function GET(request: Request) {
+  const user = await getMobileAuthUser(request);
+
+  if (!user) {
+    return withMobileCors(
+      NextResponse.json({ message: "Please log in to view orders." }, { status: 401 }),
+    );
+  }
+
+  if (user.role !== "user") {
+    return withMobileCors(
+      NextResponse.json(
+        { message: "Only customer accounts can view mobile orders." },
+        { status: 403 },
+      ),
+    );
+  }
+
+  try {
+    const userOrders = await getOrdersForAuthenticatedCustomer(user);
+    const activeStatusSet = new Set<string>(ACTIVE_ORDER_STATUSES);
+    const activeOrders = userOrders.filter((order) => activeStatusSet.has(order.status));
+    const historyOrders = userOrders.filter((order) =>
+      ["completed", "cancelled"].includes(order.status),
+    );
+
+    return withMobileCors(
+      NextResponse.json({
+        active_orders: activeOrders.map(toMobileOrderSummary),
+        history_orders: historyOrders.map(toMobileOrderSummary),
+      }),
+    );
+  } catch {
+    return withMobileCors(
+      NextResponse.json({ message: "Orders are temporarily unavailable." }, { status: 500 }),
+    );
+  }
+}
 
 export async function POST(request: Request) {
   const user = await getMobileAuthUser(request);
@@ -101,4 +148,21 @@ export async function POST(request: Request) {
 
 export function OPTIONS() {
   return mobileOptionsResponse();
+}
+
+function toMobileOrderSummary(order: OrderWithItems) {
+  return {
+    id: order.id,
+    status: order.status,
+    delivery_type: order.deliveryType,
+    total_price: order.totalPrice,
+    created_at: order.createdAt.toISOString(),
+    updated_at: order.updatedAt.toISOString(),
+    items: order.items.map((item) => ({
+      product_name: item.productName,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      line_total: item.lineTotal,
+    })),
+  };
 }

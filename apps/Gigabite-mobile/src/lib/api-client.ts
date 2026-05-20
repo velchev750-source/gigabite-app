@@ -8,18 +8,29 @@ export function getApiUrl(path: string) {
   return `${normalizedBaseUrl}${normalizedPath}`;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(getApiUrl(path), {
-    headers: {
-      Accept: 'application/json',
-    },
-  });
+export async function apiGet<T>(
+  path: string,
+  options: { token?: string | null } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
 
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`;
   }
 
-  return (await response.json()) as T;
+  const response = await fetch(getApiUrl(path), {
+    headers,
+  });
+
+  const data = (await response.json().catch(() => null)) as T | { message?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data, response.status));
+  }
+
+  return data as T;
 }
 
 export async function apiPost<T>(
@@ -45,13 +56,43 @@ export async function apiPost<T>(
   const data = (await response.json().catch(() => null)) as T | { message?: string } | null;
 
   if (!response.ok) {
-    const message =
-      data && typeof data === 'object' && 'message' in data && data.message
-        ? data.message
-        : `Request failed with status ${response.status}`;
-
-    throw new Error(message);
+    throw new Error(getErrorMessage(data, response.status));
   }
 
   return data as T;
+}
+
+export async function apiPatch<T>(
+  path: string,
+  body: unknown,
+  options: { token?: string | null } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`;
+  }
+
+  const response = await fetch(getApiUrl(path), {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const data = (await response.json().catch(() => null)) as T | { message?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data, response.status));
+  }
+
+  return data as T;
+}
+
+function getErrorMessage(data: unknown, status: number) {
+  return data && typeof data === 'object' && 'message' in data && data.message
+    ? String(data.message)
+    : `Request failed with status ${status}`;
 }

@@ -135,11 +135,20 @@ async function getOrderById(orderId: number) {
 }
 
 export async function getOrdersForUser(userId: number) {
-  await requireCurrentCustomer(userId);
+  const user = await requireCurrentCustomer(userId);
+
+  return getOrdersForAuthenticatedCustomer(user);
+}
+
+export async function getOrdersForAuthenticatedCustomer(user: AuthUser) {
+  requireCustomerRole(user);
 
   return db.query.orders.findMany({
-    where: eq(orders.userId, userId),
+    where: eq(orders.userId, user.id),
     orderBy: [desc(orders.createdAt)],
+    with: {
+      items: true,
+    },
   });
 }
 
@@ -159,10 +168,16 @@ export async function getActiveOrderForUser(userId: number) {
 }
 
 export async function getOrderDetailsForUser(userId: number, orderId: number) {
-  await requireCurrentCustomer(userId);
+  const user = await requireCurrentCustomer(userId);
+
+  return getOrderDetailsForAuthenticatedCustomer(user, orderId);
+}
+
+export async function getOrderDetailsForAuthenticatedCustomer(user: AuthUser, orderId: number) {
+  requireCustomerRole(user);
 
   const [order] = await db.query.orders.findMany({
-    where: and(eq(orders.id, orderId), eq(orders.userId, userId)),
+    where: and(eq(orders.id, orderId), eq(orders.userId, user.id)),
     with: {
       items: true,
     },
@@ -173,8 +188,17 @@ export async function getOrderDetailsForUser(userId: number, orderId: number) {
 }
 
 export async function requestOrderCancellation(userId: number, orderId: number) {
-  await requireCurrentCustomer(userId);
-  const order = await getOrderDetailsForUser(userId, orderId);
+  const user = await requireCurrentCustomer(userId);
+
+  return requestOrderCancellationForAuthenticatedCustomer(user, orderId);
+}
+
+export async function requestOrderCancellationForAuthenticatedCustomer(
+  user: AuthUser,
+  orderId: number,
+) {
+  requireCustomerRole(user);
+  const order = await getOrderDetailsForAuthenticatedCustomer(user, orderId);
 
   if (!order) {
     throw new OrderValidationError("Order was not found.");
@@ -190,10 +214,16 @@ export async function requestOrderCancellation(userId: number, orderId: number) 
       status: "cancel_requested",
       cancelRequestedAt: new Date(),
     })
-    .where(and(eq(orders.id, orderId), eq(orders.userId, userId)))
+    .where(and(eq(orders.id, orderId), eq(orders.userId, user.id)))
     .returning();
 
   return updatedOrder;
+}
+
+function requireCustomerRole(user: Pick<AuthUser, "role">) {
+  if (user.role !== "user") {
+    throw new OrderValidationError("Only customer accounts can access orders.");
+  }
 }
 
 async function requireCurrentCustomer(userId: number) {
