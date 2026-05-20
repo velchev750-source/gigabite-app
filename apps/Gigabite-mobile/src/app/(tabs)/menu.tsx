@@ -17,19 +17,16 @@ import { ScreenContainer } from '@/components/screen-container';
 import { SectionTitle } from '@/components/section-title';
 import { StatusBadge } from '@/components/status-badge';
 import { GigabiteColors, Spacing } from '@/constants/theme';
+import { useCart } from '@/context/cart-context';
 import { getMobileMenu, type MobileMenuCategory, type MobileMenuProduct } from '@/lib/menu-api';
-
-type CartItem = {
-  product: MobileMenuProduct;
-  quantity: number;
-};
+import { blurActiveWebElement } from '@/lib/web-focus';
 
 export default function MenuScreen() {
   const [categories, setCategories] = useState<MobileMenuCategory[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<number | 'all'>('all');
-  const [cartItems, setCartItems] = useState<Record<number, CartItem>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const cart = useCart();
 
   async function loadMenu() {
     setIsLoading(true);
@@ -58,35 +55,6 @@ export default function MenuScreen() {
 
     return allProducts.filter((product) => product.category_id === activeCategoryId);
   }, [activeCategoryId, categories]);
-
-  const cartSummary = useMemo(() => {
-    return Object.values(cartItems).reduce(
-      (summary, item) => ({
-        totalItems: summary.totalItems + item.quantity,
-        totalPrice: summary.totalPrice + item.product.price * item.quantity,
-      }),
-      { totalItems: 0, totalPrice: 0 },
-    );
-  }, [cartItems]);
-
-  function updateQuantity(product: MobileMenuProduct, nextQuantity: number) {
-    setCartItems((current) => {
-      const updated = { ...current };
-
-      if (nextQuantity <= 0) {
-        delete updated[product.id];
-        return updated;
-      }
-
-      updated[product.id] = { product, quantity: nextQuantity };
-      return updated;
-    });
-  }
-
-  function addProduct(product: MobileMenuProduct) {
-    const currentQuantity = cartItems[product.id]?.quantity ?? 0;
-    updateQuantity(product, currentQuantity + 1);
-  }
 
   return (
     <View style={styles.screen}>
@@ -122,16 +90,16 @@ export default function MenuScreen() {
             {products.length ? (
               <View style={styles.productList}>
                 {products.map((product) => {
-                  const quantity = cartItems[product.id]?.quantity ?? 0;
+                  const quantity = cart.getQuantity(product.id);
 
                   return (
                     <MenuProductCard
                       key={product.id}
                       product={product}
                       quantity={quantity}
-                      onAdd={() => addProduct(product)}
-                      onDecrease={() => updateQuantity(product, quantity - 1)}
-                      onIncrease={() => updateQuantity(product, quantity + 1)}
+                      onAdd={() => cart.addItem(product)}
+                      onDecrease={() => cart.decreaseItem(product)}
+                      onIncrease={() => cart.increaseItem(product)}
                     />
                   );
                 })}
@@ -143,11 +111,14 @@ export default function MenuScreen() {
         ) : null}
       </ScreenContainer>
 
-      {cartSummary.totalItems > 0 ? (
+      {cart.itemCount > 0 ? (
         <FloatingCartSummary
-          totalItems={cartSummary.totalItems}
-          totalPrice={cartSummary.totalPrice}
-          onPress={() => router.push('/cart')}
+          totalItems={cart.itemCount}
+          totalPrice={cart.totalPrice}
+          onPress={() => {
+            blurActiveWebElement();
+            router.push('/cart');
+          }}
         />
       ) : null}
     </View>

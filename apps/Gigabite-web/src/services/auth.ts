@@ -210,6 +210,29 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   }
 }
 
+export async function getCurrentUserFromBearerToken(token: string): Promise<AuthUser | null> {
+  try {
+    const payload = jwt.verify(token, getJwtSecret()) as AuthTokenPayload;
+    const user = await getUserById(payload.userId);
+
+    if (!user || user.email !== payload.email || user.role !== payload.role) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      defaultDeliveryAddress: user.defaultDeliveryAddress,
+      workLocation: user.workLocation,
+      role: user.role,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function requireAuth() {
   const user = await getCurrentUser();
 

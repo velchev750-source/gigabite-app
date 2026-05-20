@@ -2,7 +2,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { orderItems, orders, products, type Order } from "@/db/schema";
-import { requireRole } from "@/services/auth";
+import { requireRole, type AuthUser } from "@/services/auth";
 
 export const ACTIVE_ORDER_STATUSES = [
   "pending_approval",
@@ -37,6 +37,17 @@ export class OrderValidationError extends Error {
 
 export async function createOrder(input: CreateOrderInput) {
   const user = await requireRole("user");
+
+  return createOrderForAuthenticatedCustomer(user, input);
+}
+
+export async function createOrderForAuthenticatedCustomer(
+  user: AuthUser,
+  input: CreateOrderInput,
+) {
+  if (user.role !== "user") {
+    throw new OrderValidationError("Only customer accounts can place orders.");
+  }
 
   if (input.userId !== user.id) {
     throw new OrderValidationError("Users can only create orders for their own account.");

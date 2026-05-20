@@ -1,3 +1,5 @@
+import { CheckCircle2 } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -13,6 +15,8 @@ const orders = [
 ];
 
 export default function OrdersScreen() {
+  const { createdOrderId } = useLocalSearchParams<{ createdOrderId?: string }>();
+
   return (
     <ScreenContainer>
       <AppHeader
@@ -20,6 +24,17 @@ export default function OrdersScreen() {
         title="Track every bite."
         subtitle="Customer order history and active status will live here."
       />
+      {createdOrderId ? (
+        <View style={styles.successCard}>
+          <CheckCircle2 color={GigabiteColors.emerald} size={24} />
+          <View style={styles.successTextWrap}>
+            <Text style={styles.successTitle}>Order submitted</Text>
+            <Text style={styles.successText}>
+              Order #{createdOrderId} is pending approval.
+            </Text>
+          </View>
+        </View>
+      ) : null}
       <SectionTitle title="Recent orders" subtitle="Placeholder cards for the customer order flow." />
       {orders.map((order) => (
         <View key={order.id} style={styles.card}>
@@ -46,6 +61,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: Spacing.two,
     padding: Spacing.three,
+  },
+  successCard: {
+    alignItems: 'center',
+    backgroundColor: GigabiteColors.emeraldSoft,
+    borderColor: GigabiteColors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: Spacing.two,
+    padding: Spacing.three,
+  },
+  successTextWrap: {
+    flex: 1,
+  },
+  successTitle: {
+    color: GigabiteColors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  successText: {
+    color: GigabiteColors.textMuted,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 2,
   },
   row: {
     alignItems: 'center',
