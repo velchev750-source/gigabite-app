@@ -6,7 +6,75 @@ import { categories, orderItems, orders, products, roles, users } from "./schema
 
 const roleNames = ["user", "staff", "manager"] as const;
 
-const seedUsers = [
+type SeedUser = {
+  email: string;
+  name: string;
+  phone: string;
+  defaultDeliveryAddress?: string;
+  workLocation?: string;
+  password: string;
+  role: (typeof roleNames)[number];
+};
+
+type SeedOrder = {
+  note: string;
+  userEmail: string;
+  status:
+    | "pending_approval"
+    | "approved"
+    | "in_progress"
+    | "completed"
+    | "cancel_requested"
+    | "cancelled";
+  deliveryType: "pickup" | "delivery";
+  deliveryAddress?: string;
+  managerNote?: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+  }>;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+const sofiaAddresses = [
+  "12 Vitosha Blvd, Sofia",
+  "44 Patriarh Evtimiy Blvd, Sofia",
+  "18 Graf Ignatiev Street, Sofia",
+  "7 Shishman Street, Sofia",
+  "62 Bulgaria Blvd, Sofia",
+  "25 Cherni Vrah Blvd, Sofia",
+  "9 Tsarigradsko Shose Blvd, Sofia",
+  "31 Hristo Botev Blvd, Sofia",
+  "5 Oborishte Street, Sofia",
+  "73 Aleksandar Malinov Blvd, Sofia",
+  "16 Solunska Street, Sofia",
+  "28 Rakovski Street, Sofia",
+];
+
+const customerNotes = [
+  "Please add extra napkins.",
+  "No onions, please.",
+  "Call when arriving.",
+  "Make it less spicy.",
+  "Leave at reception.",
+  "Extra sauce on the side.",
+  "Pickup under the front name.",
+  "Please pack drinks separately.",
+  "Ring the doorbell once.",
+  "No cutlery needed.",
+];
+
+const managerNotes = [
+  "Approved for normal prep queue.",
+  "Customer called to confirm details.",
+  "Address checked by manager.",
+  "Cancellation accepted for dev testing.",
+  "High-priority lunch order.",
+  "Demo workflow order.",
+];
+
+const seedUsers: SeedUser[] = [
   {
     email: "user100@gigabite.demo",
     name: "User100",
@@ -62,15 +130,9 @@ const seedUsers = [
     password: "Pass300",
     role: "manager",
   },
-] satisfies Array<{
-    email: string;
-    name: string;
-    phone: string;
-    defaultDeliveryAddress?: string;
-    workLocation?: string;
-    password: string;
-    role: (typeof roleNames)[number];
-}>;
+  ...generateStressStaffUsers(),
+  ...generateStressCustomerUsers(),
+];
 
 const seedOrders = [
   {
@@ -184,24 +246,7 @@ const seedOrders = [
       { productName: "Chicken Nuggets", quantity: 1 },
     ],
   },
-] satisfies Array<{
-  note: string;
-  userEmail: string;
-  status:
-    | "pending_approval"
-    | "approved"
-    | "in_progress"
-    | "completed"
-    | "cancel_requested"
-    | "cancelled";
-  deliveryType: "pickup" | "delivery";
-  deliveryAddress?: string;
-  managerNote?: string;
-  items: Array<{
-    productName: string;
-    quantity: number;
-  }>;
-}>;
+] satisfies SeedOrder[];
 
 const seedCategories = [
   {
@@ -351,6 +396,100 @@ const seedProducts = {
   }>
 >;
 
+function generateStressStaffUsers(): SeedUser[] {
+  return Array.from({ length: 20 }, (_, index) => {
+    const staffNumber = 220 + index;
+
+    return {
+      email: `staff${staffNumber}@gigabite.demo`,
+      name: `Staff${staffNumber}`,
+      phone: formatBulgarianPhone(89, staffNumber),
+      workLocation: [
+        "Gigabite Center",
+        "Gigabite Mall Paradise",
+        "Gigabite Studentski Grad",
+        "Gigabite Mladost",
+      ][index % 4],
+      password: `Pass${staffNumber}`,
+      role: "staff",
+    };
+  });
+}
+
+function generateStressCustomerUsers(): SeedUser[] {
+  return Array.from({ length: 50 }, (_, index) => {
+    const userNumber = 220 + index;
+    const address = sofiaAddresses[index % sofiaAddresses.length];
+
+    return {
+      email: `user${userNumber}@gigabite.demo`,
+      name: `User${userNumber}`,
+      phone: formatBulgarianPhone(88, userNumber),
+      defaultDeliveryAddress: `${address}, entrance ${String.fromCharCode(65 + (index % 4))}`,
+      password: `Pass${userNumber}`,
+      role: "user",
+    };
+  });
+}
+
+function generateStressOrders(productNames: string[]): SeedOrder[] {
+  const statuses: SeedOrder["status"][] = [
+    ...Array<SeedOrder["status"]>(15).fill("pending_approval"),
+    ...Array<SeedOrder["status"]>(20).fill("approved"),
+    ...Array<SeedOrder["status"]>(20).fill("in_progress"),
+    ...Array<SeedOrder["status"]>(25).fill("completed"),
+    ...Array<SeedOrder["status"]>(10).fill("cancelled"),
+    ...Array<SeedOrder["status"]>(10).fill("cancel_requested"),
+  ];
+  const now = new Date();
+  const startOfToday = startOfDay(now);
+  const yesterday = addDays(startOfToday, -1);
+
+  return statuses.map((status, index) => {
+    const orderNumber = index + 1;
+    const deliveryType = index % 3 === 0 ? "pickup" : "delivery";
+    const createdAt = getStressOrderCreatedAt(status, index, startOfToday, yesterday);
+    const updatedAt = getStressOrderUpdatedAt(status, index, createdAt, startOfToday);
+    const productOffset = index % productNames.length;
+    const items = [
+      {
+        productName: productNames[productOffset],
+        quantity: (index % 3) + 1,
+      },
+      {
+        productName: productNames[(productOffset + 6) % productNames.length],
+        quantity: (index % 2) + 1,
+      },
+    ];
+
+    if (index % 4 === 0) {
+      items.push({
+        productName: productNames[(productOffset + 14) % productNames.length],
+        quantity: 1,
+      });
+    }
+
+    return {
+      note: `GB-STRESS-ORDER-${orderNumber.toString().padStart(3, "0")} - ${
+        customerNotes[index % customerNotes.length]
+      }`,
+      userEmail: `user${220 + (index % 50)}@gigabite.demo`,
+      status,
+      deliveryType,
+      deliveryAddress:
+        deliveryType === "delivery"
+          ? `${sofiaAddresses[index % sofiaAddresses.length]}, floor ${(index % 8) + 1}`
+          : undefined,
+      managerNote: ["approved", "in_progress", "completed", "cancelled"].includes(status)
+        ? managerNotes[index % managerNotes.length]
+        : undefined,
+      items,
+      createdAt,
+      updatedAt,
+    };
+  });
+}
+
 async function main() {
   await seedRoles();
   const roleIds = await getRoleIds();
@@ -358,6 +497,7 @@ async function main() {
   await seedDemoUsers(roleIds);
   await seedMenu();
   await seedDemoOrders();
+  await seedStressOrders();
 }
 
 async function seedRoles() {
@@ -527,12 +667,30 @@ async function syncSeedProductPromoFlags() {
 }
 
 async function seedDemoOrders() {
+  await insertSeedOrders(seedOrders);
+}
+
+async function seedStressOrders() {
+  const productRows = await db
+    .select({ name: products.name })
+    .from(products)
+    .where(inArray(products.name, Object.values(seedProducts).flatMap((items) => items.map((item) => item.name))));
+  const productNames = productRows.map((product) => product.name);
+
+  if (!productNames.length) {
+    throw new Error("Cannot create stress orders without seeded products.");
+  }
+
+  await insertSeedOrders(generateStressOrders(productNames));
+}
+
+async function insertSeedOrders(ordersToSeed: SeedOrder[]) {
   const existingSeedOrders = await db
     .select({ customerNote: orders.customerNote })
     .from(orders)
-    .where(inArray(orders.customerNote, seedOrders.map((order) => order.note)));
+    .where(inArray(orders.customerNote, ordersToSeed.map((order) => order.note)));
   const existingNotes = new Set(existingSeedOrders.map((order) => order.customerNote));
-  const missingOrders = seedOrders.filter((order) => !existingNotes.has(order.note));
+  const missingOrders = ordersToSeed.filter((order) => !existingNotes.has(order.note));
 
   if (!missingOrders.length) {
     return;
@@ -544,10 +702,10 @@ async function seedDemoOrders() {
       email: users.email,
     })
     .from(users)
-    .where(inArray(users.email, seedOrders.map((order) => order.userEmail)));
+    .where(inArray(users.email, missingOrders.map((order) => order.userEmail)));
   const userIdsByEmail = new Map(userRows.map((user) => [user.email, user.id]));
 
-  const productNames = [...new Set(seedOrders.flatMap((order) => order.items.map((item) => item.productName)))];
+  const productNames = [...new Set(missingOrders.flatMap((order) => order.items.map((item) => item.productName)))];
   const productRows = await db
     .select({
       id: products.id,
@@ -571,8 +729,9 @@ async function seedDemoOrders() {
       throw new Error(`Missing customer for seed order: ${seedOrder.userEmail}`);
     }
 
-    const createdAt = new Date();
-    createdAt.setHours(createdAt.getHours() - (missingOrders.length - index));
+    const createdAt = seedOrder.createdAt ?? new Date();
+    createdAt.setHours(createdAt.getHours() - (seedOrder.createdAt ? 0 : missingOrders.length - index));
+    const updatedAt = seedOrder.updatedAt ?? (seedOrder.status === "completed" ? new Date() : createdAt);
 
     const itemValues = seedOrder.items.map((item) => {
       const product = productsByName.get(item.productName);
@@ -614,9 +773,9 @@ async function seedDemoOrders() {
           seedOrder.status === "cancel_requested" || seedOrder.status === "cancelled"
             ? createdAt
             : null,
-        cancelApprovedAt: seedOrder.status === "cancelled" ? new Date() : null,
+        cancelApprovedAt: seedOrder.status === "cancelled" ? updatedAt : null,
         createdAt,
-        updatedAt: seedOrder.status === "completed" ? new Date() : createdAt,
+        updatedAt,
       })
       .returning({ id: orders.id });
 
@@ -643,6 +802,69 @@ function formatCents(value: bigint) {
   const fraction = (absoluteValue % centsPerUnit).toString().padStart(2, "0");
 
   return `${sign}${whole}.${fraction}`;
+}
+
+function formatBulgarianPhone(prefix: 88 | 89, seed: number) {
+  const suffix = String(seed).padStart(4, "0");
+
+  return `+359 ${prefix} ${suffix.slice(0, 3)} ${suffix.slice(3)}${seed % 10}`;
+}
+
+function getStressOrderCreatedAt(
+  status: SeedOrder["status"],
+  index: number,
+  startOfToday: Date,
+  yesterday: Date,
+) {
+  if (status === "completed" && index % 3 === 0) {
+    const date = new Date(startOfToday);
+    date.setHours(10 + (index % 8), (index * 7) % 60, 0, 0);
+    return date;
+  }
+
+  if (["approved", "in_progress", "pending_approval", "cancel_requested"].includes(status)) {
+    const date = new Date(startOfToday);
+    date.setHours(8 + (index % 10), (index * 11) % 60, 0, 0);
+    return date;
+  }
+
+  const daysBack = status === "completed" ? 2 + (index % 12) : 1 + (index % 14);
+  const date = addDays(yesterday, -daysBack);
+  date.setHours(11 + (index % 9), (index * 13) % 60, 0, 0);
+  return date;
+}
+
+function getStressOrderUpdatedAt(
+  status: SeedOrder["status"],
+  index: number,
+  createdAt: Date,
+  startOfToday: Date,
+) {
+  if (status === "completed" && index % 3 === 0) {
+    const date = new Date(startOfToday);
+    date.setHours(12 + (index % 8), (index * 9) % 60, 0, 0);
+    return date;
+  }
+
+  if (status === "completed" || status === "cancelled") {
+    const date = new Date(createdAt);
+    date.setHours(date.getHours() + 1);
+    return date;
+  }
+
+  return createdAt;
+}
+
+function startOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function addDays(value: Date, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
 }
 
 main()

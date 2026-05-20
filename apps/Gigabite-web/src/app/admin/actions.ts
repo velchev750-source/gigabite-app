@@ -14,6 +14,7 @@ import { orderIdSchema } from "@/lib/validations/orders";
 import {
   createStaffByManagerSchema,
   createUserByManagerSchema,
+  updateStaffByManagerSchema,
 } from "@/lib/validations/users";
 import { requireRole } from "@/services/auth";
 import {
@@ -28,6 +29,7 @@ import {
   createStaffByManager,
   createUserByManager,
   ManagerUserError,
+  updateStaffByManager,
 } from "@/services/manager-users";
 
 export type AdminFormState = {
@@ -40,62 +42,122 @@ const emptyState: AdminFormState = {
   ok: false,
 };
 
-export async function approveOrderAction(formData: FormData) {
-  const manager = await requireRole("manager");
-  const orderId = orderIdSchema.parse(formDataToObject(formData).orderId);
+export async function approveOrderAction(
+  _state: AdminFormState = emptyState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  void _state;
 
-  await approveOrder(orderId, manager.id);
-  revalidatePath("/admin");
+  try {
+    const manager = await requireRole("manager");
+    const orderId = orderIdSchema.parse(formDataToObject(formData).orderId);
+
+    await approveOrder(orderId, manager.id);
+    revalidatePath("/admin");
+    return { ok: true, message: "Order approved." };
+  } catch {
+    return { ok: false, message: "Unable to approve order." };
+  }
 }
 
-export async function cancelOrderAction(formData: FormData) {
-  await requireRole("manager");
-  const { orderId, managerNote } = managerOrderActionSchema.parse(
-    formDataToObject(formData),
-  );
+export async function cancelOrderAction(
+  _state: AdminFormState = emptyState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  void _state;
 
-  await cancelOrder(orderId, managerNote);
-  revalidatePath("/admin");
+  try {
+    await requireRole("manager");
+    const { orderId, managerNote } = managerOrderActionSchema.parse(
+      formDataToObject(formData),
+    );
+
+    await cancelOrder(orderId, managerNote);
+    revalidatePath("/admin");
+    return { ok: true, message: "Order cancelled." };
+  } catch {
+    return { ok: false, message: "Unable to cancel order." };
+  }
 }
 
-export async function approveCancellationAction(formData: FormData) {
-  await requireRole("manager");
-  const { orderId, managerNote } = managerOrderActionSchema.parse(
-    formDataToObject(formData),
-  );
+export async function approveCancellationAction(
+  _state: AdminFormState = emptyState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  void _state;
 
-  await approveCancellation(orderId, managerNote);
-  revalidatePath("/admin");
+  try {
+    await requireRole("manager");
+    const { orderId, managerNote } = managerOrderActionSchema.parse(
+      formDataToObject(formData),
+    );
+
+    await approveCancellation(orderId, managerNote);
+    revalidatePath("/admin");
+    return { ok: true, message: "Cancellation approved." };
+  } catch {
+    return { ok: false, message: "Unable to approve cancellation." };
+  }
 }
 
-export async function updateManagerNoteAction(formData: FormData) {
-  await requireRole("manager");
-  const { orderId, managerNote } = managerNoteActionSchema.parse(
-    formDataToObject(formData),
-  );
+export async function updateManagerNoteAction(
+  _state: AdminFormState = emptyState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  void _state;
 
-  await updateManagerOrderNote(orderId, managerNote);
-  revalidatePath("/admin");
+  try {
+    await requireRole("manager");
+    const { orderId, managerNote } = managerNoteActionSchema.parse(
+      formDataToObject(formData),
+    );
+
+    await updateManagerOrderNote(orderId, managerNote);
+    revalidatePath("/admin");
+    return { ok: true, message: "Manager note saved." };
+  } catch {
+    return { ok: false, message: "Unable to save manager note." };
+  }
 }
 
-export async function updateDeliveryAddressAction(formData: FormData) {
-  await requireRole("manager");
-  const { orderId, deliveryAddress } = deliveryAddressActionSchema.parse(
-    formDataToObject(formData),
-  );
+export async function updateDeliveryAddressAction(
+  _state: AdminFormState = emptyState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  void _state;
 
-  await updateDeliveryAddress(orderId, deliveryAddress);
-  revalidatePath("/admin");
+  try {
+    await requireRole("manager");
+    const { orderId, deliveryAddress } = deliveryAddressActionSchema.parse(
+      formDataToObject(formData),
+    );
+
+    await updateDeliveryAddress(orderId, deliveryAddress);
+    revalidatePath("/admin");
+    return { ok: true, message: "Delivery address saved." };
+  } catch {
+    return { ok: false, message: "Unable to save delivery address." };
+  }
 }
 
-export async function updateCustomerNoteAction(formData: FormData) {
-  await requireRole("manager");
-  const { orderId, customerNote } = customerNoteActionSchema.parse(
-    formDataToObject(formData),
-  );
+export async function updateCustomerNoteAction(
+  _state: AdminFormState = emptyState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  void _state;
 
-  await updateCustomerNote(orderId, customerNote);
-  revalidatePath("/admin");
+  try {
+    await requireRole("manager");
+    const { orderId, customerNote } = customerNoteActionSchema.parse(
+      formDataToObject(formData),
+    );
+
+    await updateCustomerNote(orderId, customerNote);
+    revalidatePath("/admin");
+    return { ok: true, message: "Customer note saved." };
+  } catch {
+    return { ok: false, message: "Unable to save customer note." };
+  }
 }
 
 export async function createUserByManagerAction(
@@ -145,5 +207,30 @@ export async function createStaffByManagerAction(
     }
 
     return { ok: false, message: "Unable to create staff account." };
+  }
+}
+
+export async function updateStaffByManagerAction(
+  _state: AdminFormState = emptyState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  void _state;
+  await requireRole("manager");
+
+  try {
+    const payload = updateStaffByManagerSchema.parse(formDataToObject(formData));
+    await updateStaffByManager(payload);
+    revalidatePath("/admin");
+    return { ok: true, message: "Staff account updated." };
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return { ok: false, message: getValidationMessage(error) };
+    }
+
+    if (error instanceof ManagerUserError) {
+      return { ok: false, message: error.message };
+    }
+
+    return { ok: false, message: "Unable to update staff account." };
   }
 }

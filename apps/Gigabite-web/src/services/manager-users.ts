@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { roles, users, type Role } from "@/db/schema";
@@ -20,6 +20,16 @@ export type CreateUserByManagerInput = CreateManagedUserInput & {
 export type CreateStaffByManagerInput = CreateManagedUserInput & {
   workLocation: string;
 };
+
+export type UpdateStaffByManagerInput = {
+  staffId: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  workLocation: string;
+};
+
+export const MANAGER_STAFF_PAGE_SIZE = 8;
 
 export class ManagerUserError extends Error {
   constructor(message: string, public status = 400) {
@@ -46,6 +56,50 @@ export async function getManageableUsers() {
     .orderBy(asc(roles.name), asc(users.name));
 }
 
+export async function getManageableStaff({
+  page,
+  pageSize = MANAGER_STAFF_PAGE_SIZE,
+}: {
+  page: number;
+  pageSize?: number;
+}) {
+  await requireRole("manager");
+
+  const safePageSize = Math.max(1, Math.min(20, pageSize));
+  const safePage = Math.max(1, page);
+  const where = eq(roles.name, "staff");
+
+  const [staffRows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        workLocation: users.workLocation,
+        role: roles.name,
+      })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(where)
+      .orderBy(asc(users.name))
+      .limit(safePageSize)
+      .offset((safePage - 1) * safePageSize),
+    db.select({ count: count() }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(where),
+  ]);
+
+  const totalCount = totalRows[0]?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+
+  return {
+    staff: staffRows,
+    totalCount,
+    page: Math.min(safePage, totalPages),
+    pageSize: safePageSize,
+    totalPages,
+  };
+}
+
 export async function createUserByManager(input: CreateUserByManagerInput) {
   await requireRole("manager");
 
@@ -69,6 +123,67 @@ export async function createStaffByManager(input: CreateStaffByManagerInput) {
     defaultDeliveryAddress: null,
     workLocation,
   });
+}
+
+export async function updateStaffByManager(input: UpdateStaffByManagerInput) {
+  await requireRole("manager");
+
+  if (!Number.isInteger(input.staffId) || input.staffId <= 0) {
+    throw new ManagerUserError("A valid staff id is required.");
+  }
+
+  const name = input.name.trim();
+  const email = normalizeEmail(input.email);
+  const phone = input.phone?.trim() || null;
+  const workLocation = input.workLocation.trim();
+
+  validateRequired(name, "Name is required.");
+  validateEmail(email);
+  validateRequired(workLocation, "Work location is required for staff users.");
+
+  const [staffRole] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.name, "staff"))
+    .limit(1);
+
+  if (!staffRole) {
+    throw new ManagerUserError("Required role is missing. Please seed the database.", 500);
+  }
+
+  const [existingUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.email, email)))
+    .limit(1);
+
+  if (existingUser && existingUser.id !== input.staffId) {
+    throw new ManagerUserError("A user with this email already exists.", 409);
+  }
+
+  const [updatedStaff] = await db
+    .update(users)
+    .set({
+      name,
+      email,
+      phone,
+      workLocation,
+      defaultDeliveryAddress: null,
+    })
+    .where(and(eq(users.id, input.staffId), eq(users.roleId, staffRole.id)))
+    .returning({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      phone: users.phone,
+      workLocation: users.workLocation,
+    });
+
+  if (!updatedStaff) {
+    throw new ManagerUserError("Only staff accounts can be edited here.");
+  }
+
+  return updatedStaff;
 }
 
 async function createManagedUser(

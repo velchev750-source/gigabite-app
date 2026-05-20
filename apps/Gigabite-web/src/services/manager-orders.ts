@@ -4,6 +4,15 @@ import { db } from "@/db";
 import { orders } from "@/db/schema";
 import { requireRole } from "@/services/auth";
 
+export type ManagerOrderTab =
+  | "pendingApproval"
+  | "cancellationRequests"
+  | "activeOrders"
+  | "completed"
+  | "cancelled";
+
+export const MANAGER_ORDER_PAGE_SIZE = 4;
+
 export class ManagerOrderError extends Error {
   constructor(message: string) {
     super(message);
@@ -32,6 +41,62 @@ export async function getManagerOrders() {
   };
 }
 
+export async function getManagerOrdersByTab({
+  tab,
+  page,
+  pageSize = MANAGER_ORDER_PAGE_SIZE,
+}: {
+  tab: ManagerOrderTab;
+  page: number;
+  pageSize?: number;
+}) {
+  await requireRole("manager");
+
+  const safePageSize = Math.max(1, Math.min(12, pageSize));
+  const safePage = Math.max(1, page);
+  const statuses = getStatusesForManagerTab(tab);
+  const where = inArray(orders.status, statuses);
+
+  const [orderRows, totalRows] = await Promise.all([
+    db.query.orders.findMany({
+      where,
+      orderBy: [desc(orders.createdAt)],
+      limit: safePageSize,
+      offset: (safePage - 1) * safePageSize,
+      with: {
+        user: {
+          columns: {
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        items: {
+          columns: {
+            id: true,
+            productName: true,
+            quantity: true,
+            unitPrice: true,
+            lineTotal: true,
+          },
+        },
+      },
+    }),
+    db.select({ count: count() }).from(orders).where(where),
+  ]);
+
+  const totalCount = totalRows[0]?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+
+  return {
+    orders: orderRows,
+    totalCount,
+    page: Math.min(safePage, totalPages),
+    pageSize: safePageSize,
+    totalPages,
+  };
+}
+
 export async function getManagerMetrics() {
   await requireRole("manager");
 
@@ -49,6 +114,9 @@ export async function getManagerMetrics() {
     completedOrdersToday,
     pendingApprovalCount,
     cancellationRequestsCount,
+    activeOrdersCount,
+    completedOrdersCount,
+    cancelledOrdersCount,
   ] = await Promise.all([
     sumCompletedSales(startOfToday, startOfTomorrow),
     sumCompletedSales(startOfWeek, startOfTomorrow),
@@ -56,6 +124,9 @@ export async function getManagerMetrics() {
     countOrders("completed", startOfToday, startOfTomorrow),
     countOrders("pending_approval"),
     countOrders("cancel_requested"),
+    countOrdersByStatuses(["approved", "in_progress"]),
+    countOrders("completed"),
+    countOrders("cancelled"),
   ]);
 
   return {
@@ -65,6 +136,9 @@ export async function getManagerMetrics() {
     completedOrdersToday,
     pendingApprovalCount,
     cancellationRequestsCount,
+    activeOrdersCount,
+    completedOrdersCount,
+    cancelledOrdersCount,
   };
 }
 
@@ -225,6 +299,18 @@ async function getOrdersByStatus(statuses: Array<typeof orders.$inferSelect.stat
   });
 }
 
+function getStatusesForManagerTab(tab: ManagerOrderTab) {
+  const statusesByTab = {
+    pendingApproval: ["pending_approval"],
+    cancellationRequests: ["cancel_requested"],
+    activeOrders: ["approved", "in_progress"],
+    completed: ["completed"],
+    cancelled: ["cancelled"],
+  } satisfies Record<ManagerOrderTab, Array<typeof orders.$inferSelect.status>>;
+
+  return statusesByTab[tab];
+}
+
 async function sumCompletedSales(start: Date, end: Date) {
   const [result] = await db
     .select({
@@ -253,6 +339,15 @@ async function countOrders(status: typeof orders.$inferSelect.status, start?: Da
     .select({ count: count() })
     .from(orders)
     .where(and(...conditions));
+
+  return result?.count ?? 0;
+}
+
+async function countOrdersByStatuses(statuses: Array<typeof orders.$inferSelect.status>) {
+  const [result] = await db
+    .select({ count: count() })
+    .from(orders)
+    .where(inArray(orders.status, statuses));
 
   return result?.count ?? 0;
 }

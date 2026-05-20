@@ -17,6 +17,11 @@ const managedAccountBaseSchema = z.object({
   confirmPassword: z.string().min(1, "Confirm password is required."),
 });
 
+const staffIdSchema = z.coerce
+  .number({ invalid_type_error: "A valid staff id is required." })
+  .int("A valid staff id is required.")
+  .positive("A valid staff id is required.");
+
 const passwordConfirmation = <T extends { password: string; confirmPassword: string }>(
   data: T,
 ) => data.password === data.confirmPassword;
@@ -39,5 +44,14 @@ export const createStaffByManagerSchema = managedAccountBaseSchema
     path: ["confirmPassword"],
   });
 
+export const updateStaffByManagerSchema = z.object({
+  staffId: staffIdSchema,
+  name: z.string().trim().min(1, "Name is required.").max(100),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address."),
+  phone: optionalText(30),
+  workLocation: z.string().trim().min(1, "Work location is required for staff users.").max(120),
+});
+
 export type CreateUserByManagerPayload = z.infer<typeof createUserByManagerSchema>;
 export type CreateStaffByManagerPayload = z.infer<typeof createStaffByManagerSchema>;
+export type UpdateStaffByManagerPayload = z.infer<typeof updateStaffByManagerSchema>;

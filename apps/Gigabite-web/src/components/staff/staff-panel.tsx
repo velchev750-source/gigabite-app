@@ -8,7 +8,15 @@ import {
   ReceiptText,
   UserRound,
 } from "lucide-react";
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  useActionState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useFormStatus } from "react-dom";
 
 import {
@@ -261,7 +269,7 @@ export function StaffPanel({
           ))}
         </section>
 
-        <section className="mt-8 rounded-lg border border-white/10 bg-zinc-900 p-5 shadow-2xl shadow-black/25 sm:p-6">
+        <section className="mt-8 flex h-[1280px] max-h-[calc(100vh-3rem)] min-h-[960px] flex-col rounded-lg border border-white/10 bg-zinc-900 p-5 shadow-2xl shadow-black/25 sm:p-6">
           <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <h2 className="text-2xl font-black text-white">{activeTab.label}</h2>
@@ -298,7 +306,7 @@ export function StaffPanel({
               onOrderUpdated={() => refreshActiveData(activeStatus, pageByStatus[activeStatus])}
             />
           ) : (
-            <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+            <div className="min-h-0 flex-1 rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
               Loading orders...
             </div>
           )}
@@ -373,46 +381,110 @@ function OrderPanel({
   onOrderUpdated: () => void;
 }) {
   return (
-    <>
-      {orders.length ? (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {orders.map((order) => (
-            <StaffOrderCard
-              key={order.id}
-              order={order}
-              action={action}
-              onOrderUpdated={onOrderUpdated}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
-          {emptyText}
-        </div>
-      )}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        {orders.length ? (
+          <div className="grid gap-3">
+            {orders.map((order) => (
+              <StaffOrderCard
+                key={order.id}
+                order={order}
+                action={action}
+                onOrderUpdated={onOrderUpdated}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+            {emptyText}
+          </div>
+        )}
+      </div>
 
-      <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-5 sm:flex-row">
+      <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  function submitPage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const pageField = event.currentTarget.elements.namedItem("page") as HTMLInputElement | null;
+    const nextPage = Number(pageField?.value);
+
+    if (!Number.isFinite(nextPage)) {
+      if (pageField) {
+        pageField.value = String(page);
+      }
+      return;
+    }
+
+    const clampedPage = Math.min(totalPages, Math.max(1, Math.trunc(nextPage)));
+
+    if (pageField) {
+      pageField.value = String(clampedPage);
+    }
+
+    if (clampedPage !== page) {
+      onPageChange(clampedPage);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={submitPage}
+      className="mt-6 flex shrink-0 flex-col items-center justify-between gap-3 border-t border-white/10 pt-5 sm:flex-row"
+    >
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        className="w-full rounded-md border border-white/10 px-4 py-3 text-sm font-black text-white transition hover:border-amber-300/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+      >
+        Previous
+      </button>
+
+      <div className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+        <label className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
+          <span>Page</span>
+          <input
+            key={page}
+            name="page"
+            type="number"
+            min={1}
+            max={totalPages}
+            defaultValue={page}
+            className="h-11 w-20 rounded-md border border-white/10 bg-zinc-950 px-3 text-center text-sm font-black text-white outline-none transition focus:border-amber-300/70"
+            aria-label="Page number"
+          />
+          <span>of {totalPages}</span>
+        </label>
         <button
-          type="button"
-          onClick={() => onPageChange(page - 1)}
-          disabled={page <= 1}
-          className="w-full rounded-md border border-white/10 px-4 py-3 text-sm font-black text-white transition hover:border-amber-300/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          type="submit"
+          className="w-full rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300 sm:w-auto"
         >
-          Previous
-        </button>
-        <p className="text-sm font-semibold text-zinc-300">
-          Page {page} of {totalPages}
-        </p>
-        <button
-          type="button"
-          onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages}
-          className="w-full rounded-md border border-white/10 px-4 py-3 text-sm font-black text-white transition hover:border-amber-300/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-        >
-          Next
+          Go
         </button>
       </div>
-    </>
+
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= totalPages}
+        className="w-full rounded-md border border-white/10 px-4 py-3 text-sm font-black text-white transition hover:border-amber-300/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+      >
+        Next
+      </button>
+    </form>
   );
 }
 
@@ -425,78 +497,94 @@ function StaffOrderCard({
   action: "start" | "complete" | "none";
   onOrderUpdated: () => void;
 }) {
+  const location =
+    order.deliveryType === "delivery"
+      ? order.deliveryAddress ?? "Delivery address not provided"
+      : "Restaurant counter";
+  const itemsSummary = order.items
+    .map((item) => `${item.productName} x${item.quantity}`)
+    .join(" • ");
+
   return (
     <article className="rounded-lg border border-white/10 bg-zinc-950 p-5">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div>
-          <p className="text-sm font-semibold uppercase text-zinc-500">Order</p>
-          <h3 className="mt-1 text-2xl font-black text-white">#{order.id}</h3>
+      <div className="grid gap-5 xl:grid-cols-[130px_minmax(0,1fr)_240px] xl:items-start">
+        <div className="flex flex-wrap items-center gap-3 xl:block">
+          <h3 className="text-2xl font-black text-white">#{order.id}</h3>
+          <div className="xl:mt-2">
+            <StaffStatusBadge status={order.status as StaffOrderStatus} />
+          </div>
         </div>
-        <StaffStatusBadge status={order.status as StaffOrderStatus} />
-      </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <Meta label="Customer" value={order.user.name} />
-        <Meta label="Phone" value={order.user.phone ?? "Not added"} />
-        <Meta label="Delivery type" value={order.deliveryType} />
-        <Meta label="Created" value={formatStaffDate(new Date(order.createdAt))} />
-        <Meta label="Total" value={formatMoney(order.totalPrice)} />
-        {order.deliveryType === "delivery" ? (
-          <Meta label="Delivery address" value={order.deliveryAddress ?? "Not provided"} />
-        ) : (
-          <Meta label="Pickup" value="Restaurant counter" />
-        )}
-      </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <p className="text-xl font-black text-white">{order.user.name}</p>
+            <p className="text-base font-semibold capitalize text-zinc-300">
+              {order.deliveryType}
+            </p>
+            <p className="text-base text-zinc-500">
+              {formatStaffDate(new Date(order.createdAt))}
+            </p>
+          </div>
 
-      <div className="mt-5 rounded-md bg-white/[0.04] p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <ChefHat className="size-4 text-amber-300" aria-hidden="true" />
-          <p className="text-xs font-black uppercase text-zinc-400">Items</p>
-        </div>
-        <div className="grid gap-2">
-          {order.items.map((item) => (
-            <div key={item.id} className="flex justify-between gap-3 text-sm">
-              <span className="font-semibold text-white">{item.productName}</span>
-              <span className="font-black text-emerald-200">x{item.quantity}</span>
+          <div className="mt-3 grid gap-3 text-base text-zinc-300 lg:grid-cols-[180px_minmax(0,1fr)]">
+            <p>
+              <span className="font-black uppercase text-zinc-500">Phone </span>
+              {order.user.phone ?? "Not added"}
+            </p>
+            <p className="min-w-0 break-words">
+              <span className="font-black uppercase text-zinc-500">
+                {order.deliveryType === "delivery" ? "Address " : "Pickup "}
+              </span>
+              {location}
+            </p>
+          </div>
+
+          <div className="mt-3 flex gap-2 rounded-md bg-white/[0.04] p-3 text-base">
+            <ChefHat className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden="true" />
+            <p className="min-w-0 break-words font-semibold text-white">{itemsSummary}</p>
+          </div>
+
+          {order.customerNote ? (
+            <div className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2">
+              <p className="text-xs font-black uppercase text-amber-200">Customer note</p>
+              <p className="mt-1 break-words text-base leading-7 text-amber-50">
+                {truncateText(order.customerNote, 180)}
+              </p>
             </div>
-          ))}
+          ) : null}
         </div>
-      </div>
 
-      {order.customerNote ? (
-        <div className="mt-4 rounded-md border border-amber-300/20 bg-amber-300/10 p-4">
-          <p className="text-xs font-black uppercase text-amber-200">Customer note</p>
-          <p className="mt-2 text-sm leading-6 text-amber-50">{order.customerNote}</p>
+        <div className="flex flex-col items-start gap-3 xl:items-stretch">
+          <p className="text-2xl font-black text-emerald-200">
+            {formatMoney(order.totalPrice)}
+          </p>
+          {action === "start" ? (
+            <StaffActionForm
+              action={startPreparationAction}
+              orderId={order.id}
+              icon="play"
+              idleLabel="Start Preparation"
+              pendingLabel="Starting"
+              onSuccess={onOrderUpdated}
+            />
+          ) : null}
+          {action === "complete" ? (
+            <StaffActionForm
+              action={completeOrderAction}
+              orderId={order.id}
+              icon="check-circle"
+              idleLabel="Mark as Completed"
+              pendingLabel="Completing"
+              onSuccess={onOrderUpdated}
+            />
+          ) : null}
+          {action === "none" ? (
+            <span className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-3 text-sm font-semibold text-zinc-400">
+              <Clock3 className="size-4" aria-hidden="true" />
+              Read-only
+            </span>
+          ) : null}
         </div>
-      ) : null}
-
-      <div className="mt-5">
-        {action === "start" ? (
-          <StaffActionForm
-            action={startPreparationAction}
-            orderId={order.id}
-            icon="play"
-            idleLabel="Start Preparation"
-            pendingLabel="Starting"
-            onSuccess={onOrderUpdated}
-          />
-        ) : null}
-        {action === "complete" ? (
-          <StaffActionForm
-            action={completeOrderAction}
-            orderId={order.id}
-            icon="check-circle"
-            idleLabel="Mark as Completed"
-            pendingLabel="Completing"
-            onSuccess={onOrderUpdated}
-          />
-        ) : null}
-        {action === "none" ? (
-          <span className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-3 text-sm font-semibold text-zinc-400">
-            <Clock3 className="size-4" aria-hidden="true" />
-            Read-only
-          </span>
-        ) : null}
       </div>
     </article>
   );
@@ -557,7 +645,7 @@ function StaffActionSubmit({
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-4 py-3 text-base font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
     >
       <Icon className="size-4" aria-hidden="true" />
       {pending ? pendingLabel : idleLabel}
@@ -565,11 +653,6 @@ function StaffActionSubmit({
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-white/[0.04] p-3">
-      <p className="text-xs font-semibold uppercase text-zinc-500">{label}</p>
-      <p className="mt-1 text-sm font-black text-white">{value}</p>
-    </div>
-  );
+function truncateText(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value;
 }
