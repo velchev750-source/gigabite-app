@@ -77,7 +77,6 @@ export default function CartScreen() {
             quantity: item.quantity,
           })),
         },
-        token,
       );
 
       cart.clearCart();

@@ -53,7 +53,7 @@ export default function OrdersScreen() {
     setErrorMessage(null);
 
     try {
-      const response = await getMobileOrders(token);
+      const response = await getMobileOrders();
       setActiveOrders(response.active_orders);
       setHistoryOrders(response.history_orders);
     } catch (error) {
@@ -79,7 +79,7 @@ export default function OrdersScreen() {
     setSuccessMessage(null);
 
     try {
-      await requestMobileOrderCancellation(orderToCancel.id, token);
+      await requestMobileOrderCancellation(orderToCancel.id);
       setSuccessMessage(`Cancellation requested for order #${orderToCancel.id}.`);
       setOrderToCancel(null);
       await loadOrders();

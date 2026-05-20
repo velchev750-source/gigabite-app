@@ -1,3 +1,5 @@
+import { getAuthToken } from './auth-storage';
+
 const DEFAULT_API_URL = 'http://localhost:3000';
 
 export function getApiUrl(path: string) {
@@ -10,15 +12,9 @@ export function getApiUrl(path: string) {
 
 export async function apiGet<T>(
   path: string,
-  options: { token?: string | null } = {},
+  options: { token?: string | null; skipAuth?: boolean } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-  };
-
-  if (options.token) {
-    headers.Authorization = `Bearer ${options.token}`;
-  }
+  const headers = await buildHeaders(options);
 
   const response = await fetch(getApiUrl(path), {
     headers,
@@ -36,16 +32,9 @@ export async function apiGet<T>(
 export async function apiPost<T>(
   path: string,
   body: unknown,
-  options: { token?: string | null } = {},
+  options: { token?: string | null; skipAuth?: boolean } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-  };
-
-  if (options.token) {
-    headers.Authorization = `Bearer ${options.token}`;
-  }
+  const headers = await buildHeaders(options, true);
 
   const response = await fetch(getApiUrl(path), {
     method: 'POST',
@@ -65,16 +54,9 @@ export async function apiPost<T>(
 export async function apiPatch<T>(
   path: string,
   body: unknown,
-  options: { token?: string | null } = {},
+  options: { token?: string | null; skipAuth?: boolean } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-  };
-
-  if (options.token) {
-    headers.Authorization = `Bearer ${options.token}`;
-  }
+  const headers = await buildHeaders(options, true);
 
   const response = await fetch(getApiUrl(path), {
     method: 'PATCH',
@@ -89,6 +71,27 @@ export async function apiPatch<T>(
   }
 
   return data as T;
+}
+
+async function buildHeaders(
+  options: { token?: string | null; skipAuth?: boolean },
+  hasJsonBody = false,
+) {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+
+  if (hasJsonBody) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const token = options.skipAuth ? null : options.token ?? (await getAuthToken());
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return headers;
 }
 
 function getErrorMessage(data: unknown, status: number) {

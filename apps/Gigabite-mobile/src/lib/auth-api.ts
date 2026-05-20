@@ -1,4 +1,4 @@
-import { apiPost } from './api-client';
+import { apiGet, apiPost } from './api-client';
 
 export type MobileAuthUser = {
   id: number;
@@ -16,5 +16,9 @@ export type MobileLoginResponse = {
 };
 
 export async function loginMobileUser(input: { email: string; password: string }) {
-  return apiPost<MobileLoginResponse>('/api/mobile/auth/login', input);
+  return apiPost<MobileLoginResponse>('/api/mobile/auth/login', input, { skipAuth: true });
+}
+
+export async function getMobileAuthUser(token: string) {
+  return apiGet<{ user: MobileAuthUser | null }>('/api/mobile/auth/me', { token });
 }

@@ -53,19 +53,19 @@ export type MobileOrderResponse = {
   status: 'pending_approval';
 };
 
-export async function createMobileOrder(payload: MobileOrderPayload, token: string) {
+export async function createMobileOrder(payload: MobileOrderPayload, token?: string) {
   return apiPost<MobileOrderResponse>('/api/mobile/orders', payload, { token });
 }
 
-export async function getMobileOrders(token: string) {
+export async function getMobileOrders(token?: string) {
   return apiGet<MobileOrdersResponse>('/api/mobile/orders', { token });
 }
 
-export async function getMobileOrderDetails(orderId: number, token: string) {
+export async function getMobileOrderDetails(orderId: number, token?: string) {
   return apiGet<{ order: MobileOrderDetails }>(`/api/mobile/orders/${orderId}`, { token });
 }
 
-export async function requestMobileOrderCancellation(orderId: number, token: string) {
+export async function requestMobileOrderCancellation(orderId: number, token?: string) {
   return apiPatch<{ order_id: number; status: 'cancel_requested' }>(
     `/api/mobile/orders/${orderId}/cancel`,
     {},

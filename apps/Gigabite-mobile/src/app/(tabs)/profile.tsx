@@ -10,7 +10,7 @@ import { GigabiteColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 
 export default function ProfileScreen() {
-  const { isLoggingIn, login, logout, user } = useAuth();
+  const { isLoggingIn, isRestoringSession, login, logout, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -36,10 +36,19 @@ export default function ProfileScreen() {
       <AppHeader
         eyebrow="Profile"
         title={user ? `Hi, ${user.name}.` : 'Customer account.'}
-        subtitle="Mobile checkout uses a customer login token kept in app memory for this session."
+        subtitle="Mobile checkout uses a secure persisted customer session."
       />
 
-      {user ? (
+      {isRestoringSession ? (
+        <View style={styles.card}>
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={GigabiteColors.amber} />
+            <Text style={styles.loadingText}>Restoring session</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {!isRestoringSession && user ? (
         <>
           <SectionTitle title="Signed in" subtitle="Mobile app stays customer-only." />
           <View style={styles.card}>
@@ -52,12 +61,14 @@ export default function ProfileScreen() {
               value={user.defaultDeliveryAddress ?? 'Not set'}
             />
           </View>
-          <Pressable onPress={logout} style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}>
+          <Pressable onPress={() => void logout()} style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}>
             <LogOut color={GigabiteColors.text} size={18} />
             <Text style={styles.logoutText}>Log out</Text>
           </Pressable>
         </>
-      ) : (
+      ) : null}
+
+      {!isRestoringSession && !user ? (
         <>
           <SectionTitle title="Login" subtitle="Required before submitting checkout." />
           <View style={styles.card}>
@@ -95,7 +106,7 @@ export default function ProfileScreen() {
             )}
           </View>
         </>
-      )}
+      ) : null}
     </ScreenContainer>
   );
 }

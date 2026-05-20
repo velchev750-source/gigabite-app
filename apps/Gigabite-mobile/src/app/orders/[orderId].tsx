@@ -46,7 +46,7 @@ export default function OrderDetailsScreen() {
     setErrorMessage(null);
 
     try {
-      const response = await getMobileOrderDetails(parsedOrderId, token);
+      const response = await getMobileOrderDetails(parsedOrderId);
       setOrder(response.order);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Order details could not be loaded.');
@@ -70,7 +70,7 @@ export default function OrderDetailsScreen() {
     setSuccessMessage(null);
 
     try {
-      await requestMobileOrderCancellation(order.id, token);
+      await requestMobileOrderCancellation(order.id);
       setSuccessMessage(`Cancellation requested for order #${order.id}.`);
       setIsConfirmVisible(false);
       await loadOrder();
