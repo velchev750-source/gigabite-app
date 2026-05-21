@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { withNoStore } from "@/lib/no-store-response";
 import { parseOrderSortOption } from "@/lib/order-sort-options";
 import {
   getStaffOrdersByStatus,
@@ -9,6 +10,8 @@ import {
 
 const staffOrderStatuses = ["approved", "in_progress", "completed"] as const;
 
+export const dynamic = "force-dynamic";
+
 function isStaffOrderStatus(status: string | null): status is StaffOrderStatus {
   return staffOrderStatuses.some((allowedStatus) => allowedStatus === status);
 }
@@ -17,7 +20,9 @@ export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status");
 
   if (!isStaffOrderStatus(status)) {
-    return NextResponse.json({ error: "Invalid staff order status." }, { status: 400 });
+    return withNoStore(
+      NextResponse.json({ error: "Invalid staff order status." }, { status: 400 }),
+    );
   }
 
   const page = Number(request.nextUrl.searchParams.get("page") ?? "1");
@@ -29,5 +34,5 @@ export async function GET(request: NextRequest) {
     sortBy,
   });
 
-  return NextResponse.json(ordersPage);
+  return withNoStore(NextResponse.json(ordersPage));
 }

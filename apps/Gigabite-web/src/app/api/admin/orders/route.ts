@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { withNoStore } from "@/lib/no-store-response";
 import { parseOrderSortOption } from "@/lib/order-sort-options";
 import {
   getManagerOrdersByTab,
@@ -15,6 +16,8 @@ const managerOrderTabs = [
   "cancelled",
 ] as const;
 
+export const dynamic = "force-dynamic";
+
 function isManagerOrderTab(tab: string | null): tab is ManagerOrderTab {
   return managerOrderTabs.some((allowedTab) => allowedTab === tab);
 }
@@ -23,7 +26,9 @@ export async function GET(request: NextRequest) {
   const tab = request.nextUrl.searchParams.get("tab");
 
   if (!isManagerOrderTab(tab)) {
-    return NextResponse.json({ error: "Invalid manager order tab." }, { status: 400 });
+    return withNoStore(
+      NextResponse.json({ error: "Invalid manager order tab." }, { status: 400 }),
+    );
   }
 
   const page = Number(request.nextUrl.searchParams.get("page") ?? "1");
@@ -35,5 +40,5 @@ export async function GET(request: NextRequest) {
     sortBy,
   });
 
-  return NextResponse.json(ordersPage);
+  return withNoStore(NextResponse.json(ordersPage));
 }

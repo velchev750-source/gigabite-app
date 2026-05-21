@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 
 import type { Order, OrderItem } from "@/db/schema";
+import { withNoStore } from "@/lib/no-store-response";
 import { getValidationMessage } from "@/lib/validations/form";
 import {
   ACTIVE_ORDER_STATUSES,
@@ -51,20 +52,26 @@ const mobileCreateOrderSchema = z
 
 type OrderWithItems = Order & { items: OrderItem[] };
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const user = await getMobileAuthUser(request);
 
   if (!user) {
-    return withMobileCors(
-      NextResponse.json({ message: "Please log in to view orders." }, { status: 401 }),
+    return withNoStore(
+      withMobileCors(
+        NextResponse.json({ message: "Please log in to view orders." }, { status: 401 }),
+      ),
     );
   }
 
   if (user.role !== "user") {
-    return withMobileCors(
-      NextResponse.json(
-        { message: "Only customer accounts can view mobile orders." },
-        { status: 403 },
+    return withNoStore(
+      withMobileCors(
+        NextResponse.json(
+          { message: "Only customer accounts can view mobile orders." },
+          { status: 403 },
+        ),
       ),
     );
   }
@@ -77,15 +84,19 @@ export async function GET(request: Request) {
       ["completed", "cancelled"].includes(order.status),
     );
 
-    return withMobileCors(
-      NextResponse.json({
-        active_orders: activeOrders.map(toMobileOrderSummary),
-        history_orders: historyOrders.map(toMobileOrderSummary),
-      }),
+    return withNoStore(
+      withMobileCors(
+        NextResponse.json({
+          active_orders: activeOrders.map(toMobileOrderSummary),
+          history_orders: historyOrders.map(toMobileOrderSummary),
+        }),
+      ),
     );
   } catch {
-    return withMobileCors(
-      NextResponse.json({ message: "Orders are temporarily unavailable." }, { status: 500 }),
+    return withNoStore(
+      withMobileCors(
+        NextResponse.json({ message: "Orders are temporarily unavailable." }, { status: 500 }),
+      ),
     );
   }
 }

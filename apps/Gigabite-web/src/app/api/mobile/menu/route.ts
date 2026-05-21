@@ -1,36 +1,43 @@
 import { NextResponse } from "next/server";
 
 import { getPublicImageUrl } from "@/lib/get-public-image-url";
+import { withNoStore } from "@/lib/no-store-response";
 import { getActiveMenu } from "@/services/menu";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const categories = await getActiveMenu();
 
-    return withCors(
-      NextResponse.json({
-        categories: categories.map((category) => ({
-          id: category.id,
-          name: category.name,
-          description: category.description,
-          sort_order: category.sortOrder,
-          products: category.products.map((product) => ({
-            id: product.id,
-            name: product.name,
-            description: product.description,
-            price: product.price,
-            image_url: getPublicImageUrl(product.imageUrl),
-            is_promo: product.isPromo,
-            category_id: product.categoryId,
-            category_name: category.name,
-            sort_order: product.sortOrder,
+    return withNoStore(
+      withCors(
+        NextResponse.json({
+          categories: categories.map((category) => ({
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            sort_order: category.sortOrder,
+            products: category.products.map((product) => ({
+              id: product.id,
+              name: product.name,
+              description: product.description,
+              price: product.price,
+              image_url: getPublicImageUrl(product.imageUrl),
+              is_promo: product.isPromo,
+              category_id: product.categoryId,
+              category_name: category.name,
+              sort_order: product.sortOrder,
+            })),
           })),
-        })),
-      }),
+        }),
+      ),
     );
   } catch {
-    return withCors(
-      NextResponse.json({ message: "Menu is temporarily unavailable." }, { status: 500 }),
+    return withNoStore(
+      withCors(
+        NextResponse.json({ message: "Menu is temporarily unavailable." }, { status: 500 }),
+      ),
     );
   }
 }
