@@ -9,8 +9,7 @@
   "main": "index.js",
   "workspaces": [
     "apps/Gigabite-web",
-    "apps/Gigabite-mobile",
-    "packages/shared"
+    "apps/Gigabite-mobile"
   ],
   "scripts": {
     "dev": "node ./scripts/run-workspaces.js dev --parallel",
