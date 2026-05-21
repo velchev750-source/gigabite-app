@@ -15,6 +15,7 @@
   "scripts": {
     "dev": "node ./scripts/run-workspaces.js dev --parallel",
     "build": "node ./scripts/run-workspaces.js build",
+    "build:web": "npm run --prefix apps/Gigabite-mobile build:web",
     "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
