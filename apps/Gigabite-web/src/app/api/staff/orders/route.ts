@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { parseOrderSortOption } from "@/lib/order-sort-options";
 import {
   getStaffOrdersByStatus,
   STAFF_ORDER_PAGE_SIZE,
@@ -20,10 +21,12 @@ export async function GET(request: NextRequest) {
   }
 
   const page = Number(request.nextUrl.searchParams.get("page") ?? "1");
+  const sortBy = parseOrderSortOption(request.nextUrl.searchParams.get("sortBy"));
   const ordersPage = await getStaffOrdersByStatus({
     status,
     page: Number.isInteger(page) ? page : 1,
     pageSize: STAFF_ORDER_PAGE_SIZE,
+    sortBy,
   });
 
   return NextResponse.json(ordersPage);

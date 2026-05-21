@@ -45,6 +45,11 @@ import {
   EditStaffPanel,
   type StaffPage,
 } from "@/components/admin/admin-user-management";
+import {
+  DEFAULT_ORDER_SORT,
+  ORDER_SORT_OPTIONS,
+  type OrderSortOption,
+} from "@/lib/order-sort-options";
 
 type AuthUser = {
   id: number;
@@ -110,6 +115,7 @@ type ManagerOrdersPage = {
   page: number;
   pageSize: number;
   totalPages: number;
+  sortBy?: OrderSortOption;
 };
 type ManagerOrder = ManagerOrdersPage["orders"][number];
 type ManagerPanelTab = ManagerOrderTab | "createUser" | "createStaff" | "editStaff" | "products";
@@ -264,6 +270,13 @@ export function AdminPanel({
     completed: 1,
     cancelled: 1,
   });
+  const [sortByOrderTab, setSortByOrderTab] = useState<Record<ManagerOrderTab, OrderSortOption>>({
+    pendingApproval: initialOrdersPage.sortBy ?? DEFAULT_ORDER_SORT,
+    cancellationRequests: DEFAULT_ORDER_SORT,
+    activeOrders: DEFAULT_ORDER_SORT,
+    completed: DEFAULT_ORDER_SORT,
+    cancelled: DEFAULT_ORDER_SORT,
+  });
   const [staffPage, setStaffPage] = useState(initialStaffPage);
   const [staffPageNumber, setStaffPageNumber] = useState(initialStaffPage.page);
   const [productsData, setProductsData] = useState<ManagerProductsData | null>(null);
@@ -289,21 +302,24 @@ export function AdminPanel({
     setMetricsState((await response.json()) as ManagerMetrics);
   }, []);
 
-  const refreshOrderTab = useCallback(async (tab: ManagerOrderTab, page: number) => {
-    const params = new URLSearchParams({ tab, page: String(page) });
-    const response = await fetch(`/api/admin/orders?${params.toString()}`, {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
+  const refreshOrderTab = useCallback(
+    async (tab: ManagerOrderTab, page: number, sortBy: OrderSortOption) => {
+      const params = new URLSearchParams({ tab, page: String(page), sortBy });
+      const response = await fetch(`/api/admin/orders?${params.toString()}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
 
-    if (!response.ok) {
-      throw new Error("Unable to refresh manager orders.");
-    }
+      if (!response.ok) {
+        throw new Error("Unable to refresh manager orders.");
+      }
 
-    const nextPage = (await response.json()) as ManagerOrdersPage;
-    setOrderPages((current) => ({ ...current, [tab]: nextPage }));
-    setPageByOrderTab((current) => ({ ...current, [tab]: nextPage.page }));
-  }, []);
+      const nextPage = (await response.json()) as ManagerOrdersPage;
+      setOrderPages((current) => ({ ...current, [tab]: nextPage }));
+      setPageByOrderTab((current) => ({ ...current, [tab]: nextPage.page }));
+    },
+    [],
+  );
 
   const refreshStaffPage = useCallback(async (page: number) => {
     const params = new URLSearchParams({ page: String(page) });
@@ -343,7 +359,7 @@ export function AdminPanel({
         await refreshMetrics();
 
         if (isOrderTab(tab)) {
-          await refreshOrderTab(tab, pageByOrderTab[tab]);
+          await refreshOrderTab(tab, pageByOrderTab[tab], sortByOrderTab[tab]);
         }
 
         if (tab === "editStaff") {
@@ -370,6 +386,7 @@ export function AdminPanel({
       refreshOrderTab,
       refreshProducts,
       refreshStaffPage,
+      sortByOrderTab,
       staffPageNumber,
     ],
   );
@@ -386,7 +403,7 @@ export function AdminPanel({
     setActiveTab(tab);
 
     if (isOrderTab(tab) && !orderPages[tab]) {
-      void refreshOrderTab(tab, pageByOrderTab[tab]);
+      void refreshOrderTab(tab, pageByOrderTab[tab], sortByOrderTab[tab]);
     }
 
     if (tab === "products" && !productsData) {
@@ -400,7 +417,17 @@ export function AdminPanel({
     }
 
     setPageByOrderTab((current) => ({ ...current, [activeTab]: page }));
-    void refreshOrderTab(activeTab, page);
+    void refreshOrderTab(activeTab, page, sortByOrderTab[activeTab]);
+  }
+
+  function changeOrderSort(sortBy: OrderSortOption) {
+    if (!isOrderTab(activeTab)) {
+      return;
+    }
+
+    setSortByOrderTab((current) => ({ ...current, [activeTab]: sortBy }));
+    setPageByOrderTab((current) => ({ ...current, [activeTab]: 1 }));
+    void refreshOrderTab(activeTab, 1, sortBy);
   }
 
   function goToStaffPage(page: number) {
@@ -466,7 +493,9 @@ export function AdminPanel({
               emptyText={"emptyText" in activeConfig ? activeConfig.emptyText : ""}
               mode={"mode" in activeConfig ? activeConfig.mode : "readonly"}
               isRefreshing={isRefreshing}
+              sortBy={sortByOrderTab[activeTab]}
               onPageChange={goToOrderPage}
+              onSortChange={changeOrderSort}
               onOrderUpdated={() => refreshActiveData(activeTab)}
             />
           ) : null}
@@ -554,7 +583,9 @@ function OrderPanel({
   emptyText,
   mode,
   isRefreshing,
+  sortBy,
   onPageChange,
+  onSortChange,
   onOrderUpdated,
 }: {
   title: string;
@@ -563,7 +594,9 @@ function OrderPanel({
   emptyText: string;
   mode: "pending" | "cancel-request" | "active" | "readonly";
   isRefreshing: boolean;
+  sortBy: OrderSortOption;
   onPageChange: (page: number) => void;
+  onSortChange: (sortBy: OrderSortOption) => void;
   onOrderUpdated: () => void;
 }) {
   const [activeEditor, setActiveEditor] = useState<string | null>(null);
@@ -589,6 +622,7 @@ function OrderPanel({
 
       {ordersPage ? (
         <>
+          <OrderSortSelect value={sortBy} onChange={onSortChange} />
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {ordersPage.orders.length ? (
               <div className="grid gap-3">
@@ -623,6 +657,33 @@ function OrderPanel({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function OrderSortSelect({
+  value,
+  onChange,
+}: {
+  value: OrderSortOption;
+  onChange: (sortBy: OrderSortOption) => void;
+}) {
+  return (
+    <div className="mb-4 flex shrink-0 justify-end">
+      <label className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <span className="text-xs font-black uppercase text-zinc-500">Sort orders</span>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value as OrderSortOption)}
+          className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-black text-white outline-none transition focus:border-amber-300/70"
+        >
+          {ORDER_SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

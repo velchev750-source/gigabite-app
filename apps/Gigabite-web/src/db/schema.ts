@@ -58,7 +58,10 @@ export const users = pgTable(
       .references(() => roles.id),
     ...timestamps,
   },
-  (table) => [uniqueIndex("users_email_idx").on(table.email)],
+  (table) => [
+    uniqueIndex("users_email_idx").on(table.email),
+    index("users_role_id_idx").on(table.roleId),
+  ],
 );
 
 export const categories = pgTable("categories", {

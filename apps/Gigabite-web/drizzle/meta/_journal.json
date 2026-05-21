@@ -43,6 +43,13 @@
       "when": 1779275730155,
       "tag": "0005_supreme_the_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779359592493,
+      "tag": "0006_simple_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,11 @@
-import { and, count, desc, eq, gte, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { orders } from "@/db/schema";
+import {
+  DEFAULT_ORDER_SORT,
+  type OrderSortOption,
+} from "@/lib/order-sort-options";
 import { requireRole } from "@/services/auth";
 
 export type StaffOrderStatus = "approved" | "in_progress" | "completed";
@@ -34,10 +38,12 @@ export async function getStaffOrdersByStatus({
   status,
   page,
   pageSize = STAFF_ORDER_PAGE_SIZE,
+  sortBy = DEFAULT_ORDER_SORT,
 }: {
   status: StaffOrderStatus;
   page: number;
   pageSize?: number;
+  sortBy?: OrderSortOption;
 }) {
   await requireRole("staff");
 
@@ -48,7 +54,7 @@ export async function getStaffOrdersByStatus({
   const [orderRows, totalRows] = await Promise.all([
     db.query.orders.findMany({
       where,
-      orderBy: [desc(orders.createdAt)],
+      orderBy: getOrderSort(sortBy),
       limit: safePageSize,
       offset: (safePage - 1) * safePageSize,
       with: {
@@ -79,6 +85,7 @@ export async function getStaffOrdersByStatus({
     page: Math.min(safePage, totalPages),
     pageSize: safePageSize,
     totalPages,
+    sortBy,
   };
 }
 
@@ -128,7 +135,7 @@ export async function completeOrder(orderId: number) {
 async function getOrdersByStatus(status: StaffOrderStatus) {
   return db.query.orders.findMany({
     where: getStaffOrdersWhere(status),
-    orderBy: [desc(orders.createdAt)],
+    orderBy: getOrderSort(DEFAULT_ORDER_SORT),
     with: {
       user: {
         columns: {
@@ -145,6 +152,21 @@ async function getOrdersByStatus(status: StaffOrderStatus) {
       },
     },
   });
+}
+
+function getOrderSort(sortBy: OrderSortOption) {
+  const totalPriceNumber = sql<number>`${orders.totalPrice}::numeric`;
+
+  const sortByOption = {
+    newest: [desc(orders.createdAt), desc(orders.id)],
+    oldest: [asc(orders.createdAt), asc(orders.id)],
+    idAsc: [asc(orders.id)],
+    idDesc: [desc(orders.id)],
+    totalDesc: [desc(totalPriceNumber), desc(orders.id)],
+    totalAsc: [asc(totalPriceNumber), asc(orders.id)],
+  } satisfies Record<OrderSortOption, ReturnType<typeof desc>[]>;
+
+  return sortByOption[sortBy];
 }
 
 async function countOrdersByStatus(status: StaffOrderStatus) {

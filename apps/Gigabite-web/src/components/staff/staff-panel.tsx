@@ -24,6 +24,11 @@ import {
   startPreparationAction,
   type StaffActionState,
 } from "@/app/staff/actions";
+import {
+  DEFAULT_ORDER_SORT,
+  ORDER_SORT_OPTIONS,
+  type OrderSortOption,
+} from "@/lib/order-sort-options";
 import type { AuthUser } from "@/services/auth";
 import type {
   getStaffOrdersByStatus,
@@ -128,10 +133,15 @@ async function fetchStaffStats() {
   return (await response.json()) as StaffStats;
 }
 
-async function fetchStaffOrders(status: StaffOrderStatus, page: number) {
+async function fetchStaffOrders(
+  status: StaffOrderStatus,
+  page: number,
+  sortBy: OrderSortOption,
+) {
   const params = new URLSearchParams({
     status,
     page: String(page),
+    sortBy,
   });
   const response = await fetch(`/api/staff/orders?${params.toString()}`, {
     cache: "no-store",
@@ -164,6 +174,11 @@ export function StaffPanel({
     in_progress: 1,
     completed: 1,
   });
+  const [sortByStatus, setSortByStatus] = useState<Record<StaffOrderStatus, OrderSortOption>>({
+    approved: initialOrdersPage.sortBy ?? DEFAULT_ORDER_SORT,
+    in_progress: DEFAULT_ORDER_SORT,
+    completed: DEFAULT_ORDER_SORT,
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -174,14 +189,18 @@ export function StaffPanel({
   const activePage = pages[activeStatus];
 
   const refreshActiveData = useCallback(
-    async (status = activeStatus, page = pageByStatus[status]) => {
+    async (
+      status = activeStatus,
+      page = pageByStatus[status],
+      sortBy = sortByStatus[status],
+    ) => {
       setIsRefreshing(true);
       setError(null);
 
       try {
         const [nextStats, nextOrdersPage] = await Promise.all([
           fetchStaffStats(),
-          fetchStaffOrders(status, page),
+          fetchStaffOrders(status, page, sortBy),
         ]);
 
         setStatsState(nextStats);
@@ -203,22 +222,26 @@ export function StaffPanel({
         setIsRefreshing(false);
       }
     },
-    [activeStatus, pageByStatus],
+    [activeStatus, pageByStatus, sortByStatus],
   );
 
   useEffect(() => {
     const refreshInterval = window.setInterval(() => {
-      void refreshActiveData(activeStatus, pageByStatus[activeStatus]);
+      void refreshActiveData(
+        activeStatus,
+        pageByStatus[activeStatus],
+        sortByStatus[activeStatus],
+      );
     }, 10000);
 
     return () => window.clearInterval(refreshInterval);
-  }, [activeStatus, pageByStatus, refreshActiveData]);
+  }, [activeStatus, pageByStatus, refreshActiveData, sortByStatus]);
 
   function selectTab(status: StaffOrderStatus) {
     setActiveStatus(status);
 
     if (!pages[status]) {
-      void refreshActiveData(status, pageByStatus[status]);
+      void refreshActiveData(status, pageByStatus[status], sortByStatus[status]);
     }
   }
 
@@ -227,7 +250,19 @@ export function StaffPanel({
       ...current,
       [activeStatus]: page,
     }));
-    void refreshActiveData(activeStatus, page);
+    void refreshActiveData(activeStatus, page, sortByStatus[activeStatus]);
+  }
+
+  function changeSort(sortBy: OrderSortOption) {
+    setSortByStatus((current) => ({
+      ...current,
+      [activeStatus]: sortBy,
+    }));
+    setPageByStatus((current) => ({
+      ...current,
+      [activeStatus]: 1,
+    }));
+    void refreshActiveData(activeStatus, 1, sortBy);
   }
 
   return (
@@ -302,8 +337,16 @@ export function StaffPanel({
               action={activeTab.action}
               page={activePage.page}
               totalPages={activePage.totalPages}
+              sortBy={sortByStatus[activeStatus]}
               onPageChange={goToPage}
-              onOrderUpdated={() => refreshActiveData(activeStatus, pageByStatus[activeStatus])}
+              onSortChange={changeSort}
+              onOrderUpdated={() =>
+                refreshActiveData(
+                  activeStatus,
+                  pageByStatus[activeStatus],
+                  sortByStatus[activeStatus],
+                )
+              }
             />
           ) : (
             <div className="min-h-0 flex-1 rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
@@ -369,7 +412,9 @@ function OrderPanel({
   action,
   page,
   totalPages,
+  sortBy,
   onPageChange,
+  onSortChange,
   onOrderUpdated,
 }: {
   orders: StaffOrder[];
@@ -377,11 +422,14 @@ function OrderPanel({
   action: "start" | "complete" | "none";
   page: number;
   totalPages: number;
+  sortBy: OrderSortOption;
   onPageChange: (page: number) => void;
+  onSortChange: (sortBy: OrderSortOption) => void;
   onOrderUpdated: () => void;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <OrderSortSelect value={sortBy} onChange={onSortChange} />
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {orders.length ? (
           <div className="grid gap-3">
@@ -402,6 +450,33 @@ function OrderPanel({
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+    </div>
+  );
+}
+
+function OrderSortSelect({
+  value,
+  onChange,
+}: {
+  value: OrderSortOption;
+  onChange: (sortBy: OrderSortOption) => void;
+}) {
+  return (
+    <div className="mb-4 flex shrink-0 justify-end">
+      <label className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <span className="text-xs font-black uppercase text-zinc-500">Sort orders</span>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value as OrderSortOption)}
+          className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-black text-white outline-none transition focus:border-amber-300/70"
+        >
+          {ORDER_SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

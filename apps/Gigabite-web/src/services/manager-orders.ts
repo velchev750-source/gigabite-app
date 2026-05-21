@@ -1,7 +1,11 @@
-import { and, count, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { orders } from "@/db/schema";
+import {
+  DEFAULT_ORDER_SORT,
+  type OrderSortOption,
+} from "@/lib/order-sort-options";
 import { requireRole } from "@/services/auth";
 import { getManagerProductCount } from "@/services/manager-products";
 
@@ -46,10 +50,12 @@ export async function getManagerOrdersByTab({
   tab,
   page,
   pageSize = MANAGER_ORDER_PAGE_SIZE,
+  sortBy = DEFAULT_ORDER_SORT,
 }: {
   tab: ManagerOrderTab;
   page: number;
   pageSize?: number;
+  sortBy?: OrderSortOption;
 }) {
   await requireRole("manager");
 
@@ -61,7 +67,7 @@ export async function getManagerOrdersByTab({
   const [orderRows, totalRows] = await Promise.all([
     db.query.orders.findMany({
       where,
-      orderBy: [desc(orders.createdAt)],
+      orderBy: getOrderSort(sortBy),
       limit: safePageSize,
       offset: (safePage - 1) * safePageSize,
       with: {
@@ -95,6 +101,7 @@ export async function getManagerOrdersByTab({
     page: Math.min(safePage, totalPages),
     pageSize: safePageSize,
     totalPages,
+    sortBy,
   };
 }
 
@@ -281,7 +288,7 @@ const editableStatuses = ["pending_approval", "approved", "cancel_requested"] as
 async function getOrdersByStatus(statuses: Array<typeof orders.$inferSelect.status>) {
   return db.query.orders.findMany({
     where: inArray(orders.status, statuses),
-    orderBy: [desc(orders.createdAt)],
+    orderBy: getOrderSort(DEFAULT_ORDER_SORT),
     with: {
       user: {
         columns: {
@@ -301,6 +308,21 @@ async function getOrdersByStatus(statuses: Array<typeof orders.$inferSelect.stat
       },
     },
   });
+}
+
+function getOrderSort(sortBy: OrderSortOption) {
+  const totalPriceNumber = sql<number>`${orders.totalPrice}::numeric`;
+
+  const sortByOption = {
+    newest: [desc(orders.createdAt), desc(orders.id)],
+    oldest: [asc(orders.createdAt), asc(orders.id)],
+    idAsc: [asc(orders.id)],
+    idDesc: [desc(orders.id)],
+    totalDesc: [desc(totalPriceNumber), desc(orders.id)],
+    totalAsc: [asc(totalPriceNumber), asc(orders.id)],
+  } satisfies Record<OrderSortOption, ReturnType<typeof desc>[]>;
+
+  return sortByOption[sortBy];
 }
 
 function getStatusesForManagerTab(tab: ManagerOrderTab) {
