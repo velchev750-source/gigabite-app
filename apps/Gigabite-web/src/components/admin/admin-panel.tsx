@@ -7,12 +7,17 @@ import {
   ClipboardCheck,
   Clock3,
   FilePenLine,
+  ImageIcon,
+  Package,
   ReceiptText,
+  Search,
   ShieldCheck,
+  Upload,
   UserCog,
   UserPlus,
   UserRound,
   UsersRound,
+  X,
 } from "lucide-react";
 import {
   type FormEvent,
@@ -68,6 +73,7 @@ type ManagerMetrics = {
   activeOrdersCount: number;
   completedOrdersCount: number;
   cancelledOrdersCount: number;
+  productCount: number;
 };
 
 type ManagerOrdersPage = {
@@ -106,8 +112,36 @@ type ManagerOrdersPage = {
   totalPages: number;
 };
 type ManagerOrder = ManagerOrdersPage["orders"][number];
-type ManagerPanelTab = ManagerOrderTab | "createUser" | "createStaff" | "editStaff";
+type ManagerPanelTab = ManagerOrderTab | "createUser" | "createStaff" | "editStaff" | "products";
 type ManagerOrderStatus = ManagerOrder["status"];
+type PromoFilter = "all" | "promo" | "nonPromo";
+
+type ManagerProductsData = {
+  products: ManagerProduct[];
+  categories: ManagerCategory[];
+  totalCount: number;
+};
+
+type ManagerProduct = {
+  id: number;
+  categoryId: number;
+  categoryName: string;
+  name: string;
+  description: string;
+  price: string;
+  imageUrl: string | null;
+  imagePublicUrl: string | null;
+  isPromo: boolean;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+type ManagerCategory = {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+};
 
 const emptyActionState: AdminFormState = {
   message: "",
@@ -182,6 +216,12 @@ const tabs = [
     mode: "readonly",
   },
   {
+    id: "products",
+    label: "Products",
+    description: "Manage menu items",
+    icon: Package,
+  },
+  {
     id: "createStaff",
     label: "Create Staff",
     description: "Create staff accounts",
@@ -226,6 +266,8 @@ export function AdminPanel({
   });
   const [staffPage, setStaffPage] = useState(initialStaffPage);
   const [staffPageNumber, setStaffPageNumber] = useState(initialStaffPage.page);
+  const [productsData, setProductsData] = useState<ManagerProductsData | null>(null);
+  const [productsPage, setProductsPage] = useState(1);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -279,6 +321,19 @@ export function AdminPanel({
     setStaffPageNumber(nextPage.page);
   }, []);
 
+  const refreshProducts = useCallback(async () => {
+    const response = await fetch("/api/admin/products", {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to refresh products.");
+    }
+
+    setProductsData((await response.json()) as ManagerProductsData);
+  }, []);
+
   const refreshActiveData = useCallback(
     async (tab: ManagerPanelTab = activeTab) => {
       setIsRefreshing(true);
@@ -294,6 +349,10 @@ export function AdminPanel({
         if (tab === "editStaff") {
           await refreshStaffPage(staffPageNumber);
         }
+
+        if (tab === "products") {
+          await refreshProducts();
+        }
       } catch (refreshError) {
         setError(
           refreshError instanceof Error
@@ -304,7 +363,15 @@ export function AdminPanel({
         setIsRefreshing(false);
       }
     },
-    [activeTab, pageByOrderTab, refreshMetrics, refreshOrderTab, refreshStaffPage, staffPageNumber],
+    [
+      activeTab,
+      pageByOrderTab,
+      refreshMetrics,
+      refreshOrderTab,
+      refreshProducts,
+      refreshStaffPage,
+      staffPageNumber,
+    ],
   );
 
   useEffect(() => {
@@ -321,6 +388,10 @@ export function AdminPanel({
     if (isOrderTab(tab) && !orderPages[tab]) {
       void refreshOrderTab(tab, pageByOrderTab[tab]);
     }
+
+    if (tab === "products" && !productsData) {
+      void refreshProducts();
+    }
   }
 
   function goToOrderPage(page: number) {
@@ -335,6 +406,10 @@ export function AdminPanel({
   function goToStaffPage(page: number) {
     setStaffPageNumber(page);
     void refreshStaffPage(page);
+  }
+
+  function goToProductsPage(page: number) {
+    setProductsPage(page);
   }
 
   return (
@@ -406,6 +481,15 @@ export function AdminPanel({
               isRefreshing={isRefreshing}
               onPageChange={goToStaffPage}
               onStaffUpdated={() => refreshActiveData("editStaff")}
+            />
+          ) : null}
+          {activeTab === "products" ? (
+            <ProductsPanel
+              productsData={productsData}
+              page={productsPage}
+              isRefreshing={isRefreshing}
+              onPageChange={goToProductsPage}
+              onProductsUpdated={() => refreshActiveData("products")}
             />
           ) : null}
         </section>
@@ -540,6 +624,529 @@ function OrderPanel({
         </div>
       )}
     </div>
+  );
+}
+
+function ProductsPanel({
+  productsData,
+  page,
+  isRefreshing,
+  onPageChange,
+  onProductsUpdated,
+}: {
+  productsData: ManagerProductsData | null;
+  page: number;
+  isRefreshing: boolean;
+  onPageChange: (page: number) => void;
+  onProductsUpdated: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [categoryId, setCategoryId] = useState("all");
+  const [promoFilter, setPromoFilter] = useState<PromoFilter>("all");
+  const [editingProduct, setEditingProduct] = useState<ManagerProduct | null>(null);
+  const pageSize = 10;
+
+  const filteredProducts = useMemo(() => {
+    if (!productsData) {
+      return [];
+    }
+
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return productsData.products.filter((product) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        product.name.toLowerCase().includes(normalizedSearch) ||
+        product.description.toLowerCase().includes(normalizedSearch);
+      const matchesCategory =
+        categoryId === "all" || product.categoryId === Number(categoryId);
+      const matchesPromo =
+        promoFilter === "all" ||
+        (promoFilter === "promo" && product.isPromo) ||
+        (promoFilter === "nonPromo" && !product.isPromo);
+
+      return matchesSearch && matchesCategory && matchesPromo;
+    });
+  }, [categoryId, productsData, promoFilter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const visibleProducts = filteredProducts.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      onPageChange(totalPages);
+    }
+  }, [onPageChange, page, totalPages]);
+
+  function resetFiltersPage() {
+    onPageChange(1);
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-6 flex shrink-0 flex-col justify-between gap-3 lg:flex-row lg:items-end">
+        <div>
+          <h2 className="text-2xl font-black text-white">Products</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">
+            Manage menu items, pricing, promo status, and images.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {isRefreshing ? (
+            <span className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">
+              Refreshing
+            </span>
+          ) : null}
+          <span className="w-fit rounded-md border border-white/10 bg-white/5 px-3 py-1 text-xs font-black text-zinc-300">
+            {filteredProducts.length} products
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-4 grid shrink-0 gap-3 lg:grid-cols-[1fr_220px_180px]">
+        <label className="flex items-center gap-3 rounded-md border border-white/10 bg-zinc-950 px-4 py-3">
+          <Search className="size-5 shrink-0 text-amber-300" aria-hidden="true" />
+          <input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              resetFiltersPage();
+            }}
+            placeholder="Search products"
+            className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-zinc-500"
+          />
+        </label>
+        <select
+          value={categoryId}
+          onChange={(event) => {
+            setCategoryId(event.target.value);
+            resetFiltersPage();
+          }}
+          className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-black text-white outline-none focus:border-amber-300/70"
+        >
+          <option value="all">All categories</option>
+          {productsData?.categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={promoFilter}
+          onChange={(event) => {
+            setPromoFilter(event.target.value as PromoFilter);
+            resetFiltersPage();
+          }}
+          className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-black text-white outline-none focus:border-amber-300/70"
+        >
+          <option value="all">All promos</option>
+          <option value="promo">Promo only</option>
+          <option value="nonPromo">Non promo</option>
+        </select>
+      </div>
+
+      {productsData ? (
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            {visibleProducts.length ? (
+              <div className="grid gap-3">
+                {visibleProducts.map((product) => (
+                  <ProductRow
+                    key={product.id}
+                    product={product}
+                    onEdit={() => setEditingProduct(product)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+                No products match these filters.
+              </div>
+            )}
+          </div>
+          <Pagination page={safePage} totalPages={totalPages} onPageChange={onPageChange} />
+        </>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+            Loading products...
+          </div>
+        </div>
+      )}
+
+      {editingProduct && productsData ? (
+        <ProductEditor
+          product={editingProduct}
+          categories={productsData.categories}
+          canEnablePromo={
+            editingProduct.isPromo ||
+            productsData.products.filter((product) => product.isPromo).length < 6
+          }
+          onClose={() => setEditingProduct(null)}
+          onSaved={() => {
+            setEditingProduct(null);
+            onProductsUpdated();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ProductRow({ product, onEdit }: { product: ManagerProduct; onEdit: () => void }) {
+  return (
+    <article className="grid gap-4 rounded-lg border border-white/10 bg-zinc-950 p-4 lg:grid-cols-[88px_1fr_auto] lg:items-center">
+      <div className="grid size-20 place-items-center overflow-hidden rounded-md border border-white/10 bg-white/[0.04]">
+        {product.imagePublicUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imagePublicUrl}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <ImageIcon className="size-8 text-zinc-500" aria-hidden="true" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-xl font-black text-white">{product.name}</h3>
+          <span className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-black text-zinc-300">
+            {product.categoryName}
+          </span>
+          {product.isPromo ? (
+            <span className="rounded-md border border-rose-300/30 bg-rose-400/10 px-2 py-1 text-xs font-black text-rose-100">
+              Promo
+            </span>
+          ) : null}
+          <span
+            className={`rounded-md border px-2 py-1 text-xs font-black ${
+              product.isActive
+                ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-100"
+                : "border-zinc-300/20 bg-white/10 text-zinc-300"
+            }`}
+          >
+            {product.isActive ? "Active" : "Inactive"}
+          </span>
+        </div>
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
+          {product.description || "No description."}
+        </p>
+      </div>
+      <div className="flex flex-col items-start gap-3 lg:items-end">
+        <p className="text-2xl font-black text-emerald-200">{formatMoney(product.price)}</p>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300 lg:w-auto"
+        >
+          <FilePenLine className="size-4" aria-hidden="true" />
+          Edit
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function ProductEditor({
+  product,
+  categories,
+  canEnablePromo,
+  onClose,
+  onSaved,
+}: {
+  product: ManagerProduct;
+  categories: ManagerCategory[];
+  canEnablePromo: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    categoryId: String(product.categoryId),
+    imageUrl: product.imageUrl ?? "",
+    imagePublicUrl: product.imagePublicUrl ?? "",
+    isPromo: product.isPromo,
+    isActive: product.isActive,
+  });
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function uploadImage(file: File) {
+    setIsUploading(true);
+    setMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/products/upload-image", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+      const data = (await response.json()) as { publicUrl?: string; message?: string };
+
+      if (!response.ok || !data.publicUrl) {
+        throw new Error(data.message ?? "Image upload failed.");
+      }
+
+      setForm((current) => ({
+        ...current,
+        imageUrl: data.publicUrl ?? "",
+        imagePublicUrl: data.publicUrl ?? "",
+      }));
+      setMessage("Image uploaded. Save changes to update the product.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function saveProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/products/${product.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          categoryId: Number(form.categoryId),
+          name: form.name,
+          description: form.description,
+          price: form.price,
+          imageUrl: form.imageUrl,
+          isPromo: form.isPromo,
+          isActive: form.isActive,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(data?.message ?? "Unable to save product.");
+      }
+
+      onSaved();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to save product.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 px-4 py-6">
+      <div className="ml-auto flex h-full w-full max-w-2xl flex-col rounded-lg border border-white/10 bg-zinc-900 p-5 shadow-2xl shadow-black/40">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase text-amber-300">Product editor</p>
+            <h2 className="mt-2 text-2xl font-black text-white">{product.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-300 transition hover:border-amber-300/60 hover:text-amber-200"
+            aria-label="Close product editor"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <form onSubmit={saveProduct} className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="grid gap-4">
+            <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
+              <div className="overflow-hidden rounded-lg border border-white/10 bg-zinc-950">
+                <div className="grid aspect-square place-items-center bg-white/[0.04]">
+                  {form.imagePublicUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.imagePublicUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="size-10 text-zinc-500" aria-hidden="true" />
+                  )}
+                </div>
+                <label className="flex cursor-pointer items-center justify-center gap-2 border-t border-white/10 px-3 py-3 text-sm font-black text-amber-200 transition hover:bg-white/5">
+                  <Upload className="size-4" aria-hidden="true" />
+                  {isUploading ? "Uploading" : "Upload image"}
+                  <input
+                    type="file"
+                    accept="image/webp,image/png,image/jpeg"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        void uploadImage(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4">
+                <EditorInput
+                  label="Name"
+                  value={form.name}
+                  onChange={(value) => setForm((current) => ({ ...current, name: value }))}
+                />
+                <label className="grid gap-2">
+                  <span className="text-sm font-black text-zinc-200">Category</span>
+                  <select
+                    value={form.categoryId}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, categoryId: event.target.value }))
+                    }
+                    className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/70"
+                  >
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <EditorInput
+                  label="Price"
+                  value={form.price}
+                  type="number"
+                  step="0.01"
+                  onChange={(value) => setForm((current) => ({ ...current, price: value }))}
+                />
+              </div>
+            </div>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-zinc-200">Description</span>
+              <textarea
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
+                className="min-h-28 rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/70"
+              />
+            </label>
+
+            <EditorInput
+              label="Image URL"
+              value={form.imageUrl}
+              onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))}
+            />
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ToggleField
+                label="Promo product"
+                checked={form.isPromo}
+                disabled={!canEnablePromo && !form.isPromo}
+                helpText={
+                  !canEnablePromo && !form.isPromo
+                    ? "Promo slots are full. Maximum is 6 promo products."
+                    : undefined
+                }
+                onChange={(checked) => setForm((current) => ({ ...current, isPromo: checked }))}
+              />
+              <ToggleField
+                label="Active product"
+                checked={form.isActive}
+                onChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))}
+              />
+            </div>
+          </div>
+
+          {message ? (
+            <p className="mt-4 rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-zinc-200">
+              {message}
+            </p>
+          ) : null}
+
+          <div className="sticky bottom-0 mt-6 flex flex-col gap-3 border-t border-white/10 bg-zinc-900 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-white/10 px-4 py-3 text-sm font-black text-white transition hover:border-amber-300/50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || isUploading}
+              className="rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSaving ? "Saving" : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditorInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+  step,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  step?: string;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-black text-zinc-200">{label}</span>
+      <input
+        type={type}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/70"
+      />
+    </label>
+  );
+}
+
+function ToggleField({
+  label,
+  checked,
+  disabled = false,
+  helpText,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  helpText?: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      className={`flex items-center justify-between gap-3 rounded-md border border-white/10 bg-zinc-950 px-4 py-3 ${
+        disabled ? "opacity-60" : ""
+      }`}
+    >
+      <span>
+        <span className="block text-sm font-black text-white">{label}</span>
+        {helpText ? (
+          <span className="mt-1 block text-xs font-semibold text-amber-200">{helpText}</span>
+        ) : null}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="size-5 accent-amber-400 disabled:cursor-not-allowed"
+      />
+    </label>
   );
 }
 
@@ -1091,6 +1698,10 @@ function getTabCount(metrics: ManagerMetrics, tab: ManagerPanelTab) {
 
   if (tab === "cancelled") {
     return metrics.cancelledOrdersCount;
+  }
+
+  if (tab === "products") {
+    return metrics.productCount;
   }
 
   return null;

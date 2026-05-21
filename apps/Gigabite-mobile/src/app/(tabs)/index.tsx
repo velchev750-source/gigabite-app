@@ -74,6 +74,7 @@ export default function HomeScreen() {
               description={product.description || 'Fresh Gigabite favorite from the active menu.'}
               price={formatPrice(product.price)}
               tag={product.category_name}
+              imageUrl={product.image_url}
               onAdd={() => handleAddPromo(product)}
             />
           ))}

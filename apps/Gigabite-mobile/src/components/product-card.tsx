@@ -1,6 +1,6 @@
-import { Plus } from 'lucide-react-native';
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageIcon, Plus } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GigabiteColors, Spacing } from '@/constants/theme';
 
@@ -9,18 +9,39 @@ export function ProductCard({
   description,
   price,
   tag,
+  imageUrl,
   onAdd,
 }: {
   name: string;
   description: string;
   price: string;
   tag?: string;
+  imageUrl?: string | null;
   onAdd?: () => void;
 }) {
+  const [hasImageError, setHasImageError] = useState(false);
+  const shouldShowImage = Boolean(imageUrl) && !hasImageError;
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [imageUrl]);
+
   return (
     <View style={styles.card}>
-      <View style={styles.imagePlaceholder}>
-        <Text style={styles.imageText}>{tag ?? 'Hot'}</Text>
+      <View style={styles.imageWrap}>
+        {shouldShowImage ? (
+          <Image
+            source={{ uri: imageUrl ?? '' }}
+            style={styles.image}
+            resizeMode="cover"
+            onError={() => setHasImageError(true)}
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <ImageIcon color={GigabiteColors.rose} size={34} />
+            <Text style={styles.imageText}>{tag ?? 'Hot'}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.body}>
         <View style={styles.titleRow}>
@@ -47,10 +68,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
+  imageWrap: {
+    backgroundColor: GigabiteColors.surface,
+    height: 150,
+  },
+  image: {
+    height: '100%',
+    width: '100%',
+  },
   imagePlaceholder: {
     alignItems: 'center',
     backgroundColor: GigabiteColors.roseSoft,
-    height: 118,
+    flex: 1,
+    gap: Spacing.two,
     justifyContent: 'center',
   },
   imageText: {

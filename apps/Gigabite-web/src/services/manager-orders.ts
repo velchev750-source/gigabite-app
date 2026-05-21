@@ -3,6 +3,7 @@ import { and, count, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orders } from "@/db/schema";
 import { requireRole } from "@/services/auth";
+import { getManagerProductCount } from "@/services/manager-products";
 
 export type ManagerOrderTab =
   | "pendingApproval"
@@ -117,6 +118,7 @@ export async function getManagerMetrics() {
     activeOrdersCount,
     completedOrdersCount,
     cancelledOrdersCount,
+    productCount,
   ] = await Promise.all([
     sumCompletedSales(startOfToday, startOfTomorrow),
     sumCompletedSales(startOfWeek, startOfTomorrow),
@@ -127,6 +129,7 @@ export async function getManagerMetrics() {
     countOrdersByStatuses(["approved", "in_progress"]),
     countOrders("completed"),
     countOrders("cancelled"),
+    getManagerProductCount(),
   ]);
 
   return {
@@ -139,6 +142,7 @@ export async function getManagerMetrics() {
     activeOrdersCount,
     completedOrdersCount,
     cancelledOrdersCount,
+    productCount,
   };
 }
 
