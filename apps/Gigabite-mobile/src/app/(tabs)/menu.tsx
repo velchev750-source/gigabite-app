@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -48,6 +47,10 @@ export default function MenuScreen() {
   useEffect(() => {
     void loadMenu();
   }, []);
+
+  useEffect(() => {
+    setLoginMessage(null);
+  }, [user?.id]);
 
   const products = useMemo(() => {
     const allProducts = categories.flatMap((category) => category.products);
@@ -105,28 +108,20 @@ export default function MenuScreen() {
 
             {products.length ? (
               <View style={styles.productList}>
-                {products.map((product) => {
-                  const quantity = cart.getQuantity(product.id);
+                {products.map((product) => (
+                  <MenuProductCard
+                    key={product.id}
+                    product={product}
+                    onAdd={(quantity) => {
+                      if (!requireLoginBeforeCart()) {
+                        return false;
+                      }
 
-                  return (
-                    <MenuProductCard
-                      key={product.id}
-                      product={product}
-                      quantity={quantity}
-                      onAdd={() => {
-                        if (requireLoginBeforeCart()) {
-                          cart.addItem(product);
-                        }
-                      }}
-                      onDecrease={() => cart.decreaseItem(product)}
-                      onIncrease={() => {
-                        if (requireLoginBeforeCart()) {
-                          cart.increaseItem(product);
-                        }
-                      }}
-                    />
-                  );
-                })}
+                      cart.addItem(product, quantity);
+                      return true;
+                    }}
+                  />
+                ))}
               </View>
             ) : (
               <EmptyState message="No active products in this category yet." />
@@ -158,21 +153,36 @@ function CategoryTabs({
   activeCategoryId: number | 'all';
   onSelect: (categoryId: number | 'all') => void;
 }) {
+  const secondRowCategories = categories.filter(isSideCategory);
+  const firstRowCategories = categories.filter((category) => !isSideCategory(category));
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.categoryTabs}>
-      <CategoryTab label="All" isActive={activeCategoryId === 'all'} onPress={() => onSelect('all')} />
-      {categories.map((category) => (
-        <CategoryTab
-          key={category.id}
-          label={category.name}
-          isActive={activeCategoryId === category.id}
-          onPress={() => onSelect(category.id)}
-        />
-      ))}
-    </ScrollView>
+    <View style={styles.categoryTabs}>
+      <View style={styles.categoryTabRow}>
+        <CategoryTab label="All" isActive={activeCategoryId === 'all'} onPress={() => onSelect('all')} />
+        {firstRowCategories.map((category) => (
+          <CategoryTab
+            key={category.id}
+            label={category.name}
+            isActive={activeCategoryId === category.id}
+            onPress={() => onSelect(category.id)}
+          />
+        ))}
+      </View>
+
+      {secondRowCategories.length ? (
+        <View style={styles.categoryTabRow}>
+          {secondRowCategories.map((category) => (
+            <CategoryTab
+              key={category.id}
+              label={category.name}
+              isActive={activeCategoryId === category.id}
+              onPress={() => onSelect(category.id)}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -200,19 +210,22 @@ function CategoryTab({
 
 function MenuProductCard({
   product,
-  quantity,
   onAdd,
-  onDecrease,
-  onIncrease,
 }: {
   product: MobileMenuProduct;
-  quantity: number;
-  onAdd: () => void;
-  onDecrease: () => void;
-  onIncrease: () => void;
+  onAdd: (quantity: number) => boolean | void;
 }) {
   const [hasImageError, setHasImageError] = useState(false);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
   const shouldShowImage = Boolean(product.image_url) && !hasImageError;
+
+  function handleAdd() {
+    const wasAdded = onAdd(selectedQuantity);
+
+    if (wasAdded !== false) {
+      setSelectedQuantity(1);
+    }
+  }
 
   return (
     <View style={styles.productCard}>
@@ -247,11 +260,15 @@ function MenuProductCard({
 
         <View style={styles.productActions}>
           <View style={styles.stepper}>
-            <StepperButton icon="minus" disabled={quantity === 0} onPress={onDecrease} />
-            <Text style={styles.quantity}>{quantity}</Text>
-            <StepperButton icon="plus" onPress={onIncrease} />
+            <StepperButton
+              icon="minus"
+              disabled={selectedQuantity === 1}
+              onPress={() => setSelectedQuantity((quantity) => Math.max(1, quantity - 1))}
+            />
+            <Text style={styles.quantity}>{selectedQuantity}</Text>
+            <StepperButton icon="plus" onPress={() => setSelectedQuantity((quantity) => quantity + 1)} />
           </View>
-          <Pressable onPress={onAdd} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+          <Pressable onPress={handleAdd} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <Plus color={GigabiteColors.background} size={18} />
             <Text style={styles.addButtonText}>Add</Text>
           </Pressable>
@@ -352,6 +369,12 @@ function getCategoryName(categories: MobileMenuCategory[], categoryId: number | 
   return categories.find((category) => category.id === categoryId)?.name ?? 'Products';
 }
 
+function isSideCategory(category: MobileMenuCategory) {
+  const normalizedName = category.name.toLowerCase();
+
+  return normalizedName.includes('fries') || normalizedName.includes('side');
+}
+
 function getBadgeTone(categoryName: string): 'amber' | 'emerald' | 'rose' | 'sky' | 'zinc' {
   const normalizedName = categoryName.toLowerCase();
 
@@ -380,8 +403,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryTabs: {
+    alignItems: 'center',
     gap: Spacing.two,
-    paddingRight: Spacing.three,
+    width: '100%',
+  },
+  categoryTabRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'center',
+    width: '100%',
   },
   categoryTab: {
     backgroundColor: GigabiteColors.surface,
@@ -390,6 +421,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 44,
     justifyContent: 'center',
+    maxWidth: '100%',
     paddingHorizontal: Spacing.three,
   },
   categoryTabActive: {
@@ -400,6 +432,7 @@ const styles = StyleSheet.create({
     color: GigabiteColors.textMuted,
     fontSize: 14,
     fontWeight: '900',
+    textAlign: 'center',
   },
   categoryTabTextActive: {
     color: GigabiteColors.background,

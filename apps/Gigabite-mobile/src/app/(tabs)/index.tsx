@@ -39,16 +39,21 @@ export default function HomeScreen() {
     void loadPromos();
   }, []);
 
-  function handleAddPromo(product: MobileMenuProduct) {
+  useEffect(() => {
+    setLoginMessage(null);
+  }, [user?.id]);
+
+  function handleAddPromo(product: MobileMenuProduct, quantity: number) {
     if (!user) {
       setLoginMessage('Log in before adding items to your cart.');
       blurActiveWebElement();
       router.push('/profile');
-      return;
+      return false;
     }
 
     setLoginMessage(null);
-    cart.addItem(product);
+    cart.addItem(product, quantity);
+    return true;
   }
 
   return (
@@ -75,7 +80,7 @@ export default function HomeScreen() {
               price={formatPrice(product.price)}
               tag={product.category_name}
               imageUrl={product.image_url}
-              onAdd={() => handleAddPromo(product)}
+              onAdd={(quantity) => handleAddPromo(product, quantity)}
             />
           ))}
         </View>

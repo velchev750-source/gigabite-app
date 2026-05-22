@@ -1,6 +1,6 @@
 import { CheckCircle2, RefreshCcw, ReceiptText } from 'lucide-react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
@@ -36,32 +36,62 @@ export default function OrdersScreen() {
   const [historyOrders, setHistoryOrders] = useState<MobileOrderSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(
-    createdOrderId ? `Order #${createdOrderId} is pending approval.` : null,
-  );
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<MobileOrderSummary | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
+  const authSessionKey = user && token ? `${user.id}:${token}` : null;
+  const ordersRequestId = useRef(0);
 
   const loadOrders = useCallback(async () => {
     if (!token || !user) {
       setActiveOrders([]);
       setHistoryOrders([]);
+      setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
     setErrorMessage(null);
+    const requestId = ++ordersRequestId.current;
 
     try {
-      const response = await getMobileOrders();
+      const response = await getMobileOrders(token);
+      if (ordersRequestId.current !== requestId) {
+        return;
+      }
+
       setActiveOrders(response.active_orders);
       setHistoryOrders(response.history_orders);
     } catch (error) {
+      if (ordersRequestId.current !== requestId) {
+        return;
+      }
+
       setErrorMessage(error instanceof Error ? error.message : 'Orders could not be loaded.');
     } finally {
-      setIsLoading(false);
+      if (ordersRequestId.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }, [token, user]);
+
+  useEffect(() => {
+    ordersRequestId.current += 1;
+    setActiveSection('active');
+    setActiveOrders([]);
+    setHistoryOrders([]);
+    setIsLoading(false);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setOrderToCancel(null);
+    setIsCanceling(false);
+  }, [authSessionKey]);
+
+  useEffect(() => {
+    if (authSessionKey && createdOrderId) {
+      setSuccessMessage(`Order #${createdOrderId} is pending approval.`);
+    }
+  }, [authSessionKey, createdOrderId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,7 +109,7 @@ export default function OrdersScreen() {
     setSuccessMessage(null);
 
     try {
-      await requestMobileOrderCancellation(orderToCancel.id);
+      await requestMobileOrderCancellation(orderToCancel.id, token);
       setSuccessMessage(`Cancellation requested for order #${orderToCancel.id}.`);
       setOrderToCancel(null);
       await loadOrders();

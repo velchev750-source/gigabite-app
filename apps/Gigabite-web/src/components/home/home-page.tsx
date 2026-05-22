@@ -42,6 +42,7 @@ const navLinks = [
 const categories = [
   {
     title: "Burgers",
+    href: "/menu?category=Burgers",
     text: "Stacked smash burgers with melted cheese and signature sauces.",
     image:
       "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=85",
@@ -49,6 +50,7 @@ const categories = [
   },
   {
     title: "Pizzas",
+    href: "/menu?category=Pizzas",
     text: "Crispy stone-style crusts, rich toppings, and bold flavors.",
     image:
       "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=900&q=85",
@@ -56,6 +58,7 @@ const categories = [
   },
   {
     title: "Fries & Sides",
+    href: "/menu?category=Fries%20%26%20Sides",
     text: "Golden fries, loaded bites, dips, and shareable side plates.",
     image:
       "https://images.unsplash.com/photo-1630384060421-cb20d0e0649d?auto=format&fit=crop&w=900&q=85",
@@ -63,6 +66,7 @@ const categories = [
   },
   {
     title: "Drinks",
+    href: "/menu?category=Drinks",
     text: "Cold sodas, fresh lemonades, shakes, and iced refreshers.",
     image:
       "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=900&q=85",
@@ -273,7 +277,7 @@ function Hero() {
               Promo Deals <ArrowRight className="size-5" aria-hidden="true" />
             </Link>
             <Link
-              href="#categories"
+              href="/menu"
               className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-6 py-4 text-base font-bold text-white backdrop-blur transition hover:-translate-y-1 hover:border-emerald-300/60 hover:text-emerald-200"
             >
               View Menu <ChevronRight className="size-5" aria-hidden="true" />
@@ -298,30 +302,36 @@ function CategoryCard({ category }: { category: (typeof categories)[number] }) {
   const Icon = category.icon;
 
   return (
-    <article className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] shadow-xl shadow-black/20 transition duration-300 hover:-translate-y-2 hover:border-amber-300/40 hover:bg-white/[0.07]">
-      <div className="relative h-56 overflow-hidden">
-        <Image
-          src={category.image}
-          alt={category.title}
-          fill
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-          className="object-cover transition duration-500 group-hover:scale-110"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 to-transparent" />
-        <span className="absolute bottom-4 left-4 grid size-11 place-items-center rounded-lg bg-amber-400 text-zinc-950">
-          <Icon className="size-6" aria-hidden="true" />
-        </span>
-      </div>
-      <div className="p-5">
-        <h3 className="text-xl font-black text-white">{category.title}</h3>
-        <p className="mt-3 min-h-14 text-sm leading-6 text-zinc-300">
-          {category.text}
-        </p>
-        <button className="mt-5 inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-300">
-          Explore <ArrowRight className="size-4" aria-hidden="true" />
-        </button>
-      </div>
-    </article>
+    <Link
+      href={category.href}
+      aria-label={`Explore ${category.title} on the menu`}
+      className="group block cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] shadow-xl shadow-black/20 transition duration-300 hover:-translate-y-2 hover:border-amber-300/40 hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+    >
+      <article>
+        <div className="relative h-56 overflow-hidden">
+          <Image
+            src={category.image}
+            alt={category.title}
+            fill
+            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover transition duration-500 group-hover:scale-110"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 to-transparent" />
+          <span className="absolute bottom-4 left-4 grid size-11 place-items-center rounded-lg bg-amber-400 text-zinc-950">
+            <Icon className="size-6" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="p-5">
+          <h3 className="text-xl font-black text-white">{category.title}</h3>
+          <p className="mt-3 min-h-14 text-sm leading-6 text-zinc-300">
+            {category.text}
+          </p>
+          <span className="mt-5 inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-black text-zinc-950 transition group-hover:bg-amber-300">
+            Explore <ArrowRight className="size-4" aria-hidden="true" />
+          </span>
+        </div>
+      </article>
+    </Link>
   );
 }
 

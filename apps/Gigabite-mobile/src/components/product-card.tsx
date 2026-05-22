@@ -1,4 +1,4 @@
-import { ImageIcon, Plus } from 'lucide-react-native';
+import { ImageIcon, Minus, Plus } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -17,14 +17,23 @@ export function ProductCard({
   price: string;
   tag?: string;
   imageUrl?: string | null;
-  onAdd?: () => void;
+  onAdd?: (quantity: number) => boolean | void;
 }) {
   const [hasImageError, setHasImageError] = useState(false);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
   const shouldShowImage = Boolean(imageUrl) && !hasImageError;
 
   useEffect(() => {
     setHasImageError(false);
   }, [imageUrl]);
+
+  function handleAdd() {
+    const wasAdded = onAdd?.(selectedQuantity);
+
+    if (wasAdded !== false) {
+      setSelectedQuantity(1);
+    }
+  }
 
   return (
     <View style={styles.card}>
@@ -49,14 +58,50 @@ export function ProductCard({
           <Text style={styles.price}>{price}</Text>
         </View>
         <Text style={styles.description}>{description}</Text>
-        <Pressable
-          onPress={onAdd}
-          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-          <Plus color={GigabiteColors.background} size={18} />
-          <Text style={styles.addText}>Add</Text>
-        </Pressable>
+        <View style={styles.actions}>
+          <View style={styles.stepper}>
+            <QuantityButton
+              icon="minus"
+              disabled={selectedQuantity === 1}
+              onPress={() => setSelectedQuantity((quantity) => Math.max(1, quantity - 1))}
+            />
+            <Text style={styles.quantity}>{selectedQuantity}</Text>
+            <QuantityButton icon="plus" onPress={() => setSelectedQuantity((quantity) => quantity + 1)} />
+          </View>
+          <Pressable
+            onPress={handleAdd}
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+            <Plus color={GigabiteColors.background} size={18} />
+            <Text style={styles.addText}>Add</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
+  );
+}
+
+function QuantityButton({
+  icon,
+  disabled,
+  onPress,
+}: {
+  icon: 'minus' | 'plus';
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const Icon = icon === 'minus' ? Minus : Plus;
+
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.quantityButton,
+        disabled && styles.quantityButtonDisabled,
+        pressed && !disabled && styles.pressed,
+      ]}>
+      <Icon color={disabled ? GigabiteColors.textSubtle : GigabiteColors.text} size={16} />
+    </Pressable>
   );
 }
 
@@ -114,6 +159,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  actions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
+    marginTop: Spacing.one,
+  },
+  stepper: {
+    alignItems: 'center',
+    backgroundColor: GigabiteColors.surface,
+    borderColor: GigabiteColors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    minHeight: 40,
+    paddingHorizontal: Spacing.one,
+  },
+  quantityButton: {
+    alignItems: 'center',
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  quantityButtonDisabled: {
+    opacity: 0.45,
+  },
+  quantity: {
+    color: GigabiteColors.text,
+    fontSize: 15,
+    fontWeight: '900',
+    minWidth: 28,
+    textAlign: 'center',
+  },
   addButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -121,7 +200,6 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     flexDirection: 'row',
     gap: Spacing.one,
-    marginTop: Spacing.one,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },

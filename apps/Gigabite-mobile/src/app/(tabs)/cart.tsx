@@ -31,12 +31,22 @@ export default function CartScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const authSessionKey = user && token ? `${user.id}:${token}` : null;
 
   useEffect(() => {
     if (user?.defaultDeliveryAddress && !deliveryAddress) {
       setDeliveryAddress(user.defaultDeliveryAddress);
     }
   }, [deliveryAddress, user?.defaultDeliveryAddress]);
+
+  useEffect(() => {
+    setDeliveryType('pickup');
+    setDeliveryAddress(user?.defaultDeliveryAddress ?? '');
+    setCustomerNote('');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsSubmitting(false);
+  }, [authSessionKey, user?.defaultDeliveryAddress]);
 
   const canSubmit = useMemo(
     () => cart.itemCount > 0 && !isSubmitting,
@@ -77,6 +87,7 @@ export default function CartScreen() {
             quantity: item.quantity,
           })),
         },
+        token,
       );
 
       cart.clearCart();

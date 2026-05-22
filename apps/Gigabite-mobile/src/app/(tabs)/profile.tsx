@@ -1,5 +1,5 @@
 import { LogOut, Mail, MapPin, Phone, UserRound } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
@@ -19,6 +19,12 @@ export default function ProfileScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setErrorMessage(null);
+    setPassword('');
+    setConfirmPassword('');
+  }, [user?.id]);
 
   async function handleLogin() {
     setErrorMessage(null);

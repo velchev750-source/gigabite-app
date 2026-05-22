@@ -45,13 +45,17 @@ function getProductImage(product: MenuProduct, categoryName: string) {
 
 export function MenuPage({
   categories,
+  initialCategoryName,
   userRole,
 }: {
   categories: MenuCategory[];
+  initialCategoryName?: string;
   userRole: "user" | "staff" | "manager" | null;
 }) {
   const router = useRouter();
-  const [activeCategoryId, setActiveCategoryId] = useState<number | "all">("all");
+  const [activeCategoryId, setActiveCategoryId] = useState<number | "all">(() =>
+    getCategoryIdByName(categories, initialCategoryName),
+  );
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [cart, setCart] = useState<WebCart>({});
   const [isCartLoaded, setIsCartLoaded] = useState(false);
@@ -316,6 +320,19 @@ export function MenuPage({
       </div>
     </>
   );
+}
+
+function getCategoryIdByName(categories: MenuCategory[], categoryName?: string) {
+  if (!categoryName) {
+    return "all";
+  }
+
+  const normalizedCategoryName = categoryName.trim().toLowerCase();
+  const matchingCategory = categories.find(
+    (category) => category.name.trim().toLowerCase() === normalizedCategoryName,
+  );
+
+  return matchingCategory?.id ?? "all";
 }
 
 function CartSummary({

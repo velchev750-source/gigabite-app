@@ -1,6 +1,6 @@
 import { ArrowLeft, RefreshCcw, ReceiptText } from 'lucide-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
@@ -35,30 +35,48 @@ export default function OrderDetailsScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isConfirmVisible, setIsConfirmVisible] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const orderRequestId = useRef(0);
 
-  async function loadOrder() {
+  const loadOrder = useCallback(async () => {
     if (!token || !user || !Number.isInteger(parsedOrderId) || parsedOrderId <= 0) {
+      orderRequestId.current += 1;
+      setOrder(null);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setIsConfirmVisible(false);
+      setIsCanceling(false);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
+    setOrder(null);
     setErrorMessage(null);
+    const requestId = ++orderRequestId.current;
 
     try {
-      const response = await getMobileOrderDetails(parsedOrderId);
+      const response = await getMobileOrderDetails(parsedOrderId, token);
+      if (orderRequestId.current !== requestId) {
+        return;
+      }
+
       setOrder(response.order);
     } catch (error) {
+      if (orderRequestId.current !== requestId) {
+        return;
+      }
+
       setErrorMessage(error instanceof Error ? error.message : 'Order details could not be loaded.');
     } finally {
-      setIsLoading(false);
+      if (orderRequestId.current === requestId) {
+        setIsLoading(false);
+      }
     }
-  }
+  }, [parsedOrderId, token, user]);
 
   useEffect(() => {
     void loadOrder();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsedOrderId, token, user]);
+  }, [loadOrder]);
 
   async function confirmCancelRequest() {
     if (!token || !order) {
@@ -70,7 +88,7 @@ export default function OrderDetailsScreen() {
     setSuccessMessage(null);
 
     try {
-      await requestMobileOrderCancellation(order.id);
+      await requestMobileOrderCancellation(order.id, token);
       setSuccessMessage(`Cancellation requested for order #${order.id}.`);
       setIsConfirmVisible(false);
       await loadOrder();
