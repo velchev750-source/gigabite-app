@@ -24,6 +24,18 @@ const mobileOrderItemSchema = z.object({
     .max(50, "Order item quantity is too large."),
 });
 
+const mobileHotDealItemSchema = z.object({
+  hot_deal_id: z.coerce
+    .number({ invalid_type_error: "Every Hot Deal item must reference a valid Hot Deal." })
+    .int("Every Hot Deal item must reference a valid Hot Deal.")
+    .positive("Every Hot Deal item must reference a valid Hot Deal."),
+  quantity: z.coerce
+    .number({ invalid_type_error: "Hot Deal quantity must be a positive integer." })
+    .int("Hot Deal quantity must be a positive integer.")
+    .min(1, "Hot Deal quantity must be a positive integer.")
+    .max(20, "Hot Deal quantity is too large."),
+});
+
 const mobileCreateOrderSchema = z
   .object({
     delivery_type: z.enum(["pickup", "delivery"], {
@@ -43,7 +55,12 @@ const mobileCreateOrderSchema = z
       .optional()
       .nullable()
       .transform((value) => value || null),
-    items: z.array(mobileOrderItemSchema).min(1, "At least one order item is required."),
+    items: z.array(mobileOrderItemSchema).default([]),
+    hot_deals: z.array(mobileHotDealItemSchema).default([]),
+  })
+  .refine((data) => data.items.length > 0 || data.hot_deals.length > 0, {
+    message: "At least one order item is required.",
+    path: ["items"],
   })
   .refine((data) => data.delivery_type !== "delivery" || Boolean(data.delivery_address), {
     message: "Delivery address is required for delivery orders.",
@@ -128,6 +145,10 @@ export async function POST(request: Request) {
       customerNote: body.customer_note,
       items: body.items.map((item) => ({
         productId: item.product_id,
+        quantity: item.quantity,
+      })),
+      combos: body.hot_deals.map((item) => ({
+        comboOfferId: item.hot_deal_id,
         quantity: item.quantity,
       })),
     });

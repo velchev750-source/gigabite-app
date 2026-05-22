@@ -98,6 +98,9 @@ export function MenuPage({
     (sum, item) => sum + getWebCartItemPrice(item) * item.quantity,
     0,
   );
+  const shouldShowHotDeals = comboOffers.length > 0 && (
+    activeCategoryId === "all" || activeCategoryId === "hotDeals"
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -253,30 +256,19 @@ export function MenuPage({
           </div>
         </section>
 
-        {comboOffers.length && (activeCategoryId === "all" || activeCategoryId === "hotDeals") ? (
-          <section id="hot-deals" className="scroll-mt-24 bg-zinc-950 px-4 pb-10 sm:px-6 lg:px-8">
-            <span id="combo-deals" className="block scroll-mt-24" aria-hidden="true" />
-            <div className="mx-auto max-w-7xl">
-              <div className="mb-6">
-                <p className="text-sm font-semibold uppercase text-amber-300">Hot Deal</p>
-                <h2 className="mt-2 text-3xl font-black text-white">Fixed 3-product offers</h2>
-              </div>
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {comboOffers.map((comboOffer) => (
+        <section id="cart" className="scroll-mt-24 bg-zinc-900 px-4 pb-28 pt-8 sm:px-6 lg:px-8 lg:pb-20">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_360px]">
+            <div id="hot-deals" className="grid scroll-mt-24 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <span id="combo-deals" className="sr-only" aria-hidden="true" />
+              {shouldShowHotDeals
+                ? comboOffers.map((comboOffer) => (
                   <ComboOfferCard
                     key={comboOffer.id}
                     comboOffer={comboOffer}
                     onAdd={() => addComboToCart(comboOffer)}
                   />
-                ))}
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        <section id="cart" className="scroll-mt-24 bg-zinc-900 px-4 pb-28 pt-8 sm:px-6 lg:px-8 lg:pb-20">
-          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_360px]">
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                ))
+                : null}
               {visibleProducts.length ? visibleProducts.map((product) => (
                 <article
                   key={product.id}
@@ -345,11 +337,11 @@ export function MenuPage({
                     </div>
                   </div>
                 </article>
-              )) : (
+              )) : !shouldShowHotDeals ? (
                 <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
-                  Choose a menu category or add a hot deal above.
+                  Choose a menu category or add a hot deal.
                 </div>
-              )}
+              ) : null}
             </div>
 
             <aside className="hidden lg:block">

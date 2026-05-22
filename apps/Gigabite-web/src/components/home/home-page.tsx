@@ -258,8 +258,8 @@ function Hero() {
   return (
     <section className="relative isolate min-h-[calc(100svh-68px)] overflow-hidden">
       <Image
-        src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=2400&q=90"
-        alt="Loaded fast food table with burgers, fries, and sauces"
+        src="/images/home-hero.webp"
+        alt="Friends sharing burgers, pizza, fries, and drinks at a table"
         fill
         priority
         sizes="100vw"

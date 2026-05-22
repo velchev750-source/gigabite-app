@@ -46,6 +46,10 @@ export type MobileOrderPayload = {
     product_id: number;
     quantity: number;
   }[];
+  hot_deals?: {
+    hot_deal_id: number;
+    quantity: number;
+  }[];
 };
 
 export type MobileOrderResponse = {

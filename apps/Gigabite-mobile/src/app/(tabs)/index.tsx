@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
+import { HotDealCard } from '@/components/hot-deal-card';
 import { PrimaryButton } from '@/components/primary-button';
 import { ProductCard } from '@/components/product-card';
 import { ScreenContainer } from '@/components/screen-container';
@@ -11,11 +12,14 @@ import { SectionTitle } from '@/components/section-title';
 import { GigabiteColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useCart } from '@/context/cart-context';
+import { getMobileHotDeals, type MobileHotDeal } from '@/lib/hot-deals-api';
 import { getMobilePromoProducts, type MobileMenuProduct } from '@/lib/menu-api';
 import { blurActiveWebElement } from '@/lib/web-focus';
 
 export default function HomeScreen() {
   const [promoProducts, setPromoProducts] = useState<MobileMenuProduct[]>([]);
+  const [hotDeals, setHotDeals] = useState<MobileHotDeal[]>([]);
+  const [isLoadingHotDeals, setIsLoadingHotDeals] = useState(true);
   const [isLoadingPromos, setIsLoadingPromos] = useState(true);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [loginMessage, setLoginMessage] = useState<string | null>(null);
@@ -35,8 +39,22 @@ export default function HomeScreen() {
     }
   }
 
+  async function loadHotDeals() {
+    setIsLoadingHotDeals(true);
+
+    try {
+      const response = await getMobileHotDeals();
+      setHotDeals(response.hot_deals);
+    } catch {
+      setHotDeals([]);
+    } finally {
+      setIsLoadingHotDeals(false);
+    }
+  }
+
   useEffect(() => {
     void loadPromos();
+    void loadHotDeals();
   }, []);
 
   useEffect(() => {
@@ -56,6 +74,21 @@ export default function HomeScreen() {
     return true;
   }
 
+  function handleAddHotDeal(hotDeal: MobileHotDeal) {
+    if (!user) {
+      setLoginMessage('Log in before adding items to your cart.');
+      blurActiveWebElement();
+      router.push('/profile');
+      return false;
+    }
+
+    setLoginMessage(null);
+    cart.addHotDeal(hotDeal);
+    return true;
+  }
+
+  const featuredHotDeal = hotDeals[0] ?? null;
+
   return (
     <ScreenContainer>
       <AppHeader
@@ -64,8 +97,23 @@ export default function HomeScreen() {
         subtitle="Fresh Gigabite favorites are ready for your next order."
       />
 
-      <SectionTitle title="Promo picks" subtitle="Live specials from today’s active Gigabite menu." />
       {loginMessage ? <Text style={styles.loginMessage}>{loginMessage}</Text> : null}
+
+      {!isLoadingHotDeals && featuredHotDeal ? (
+        <>
+          <SectionTitle title="Hot Deal" subtitle="A live 3-product offer from the active menu." />
+          <HotDealCard
+            hotDeal={featuredHotDeal}
+            onAdd={() => handleAddHotDeal(featuredHotDeal)}
+            onPress={() => {
+              blurActiveWebElement();
+              router.push({ pathname: '/menu', params: { category: 'hotDeal' } });
+            }}
+          />
+        </>
+      ) : null}
+
+      <SectionTitle title="Promo picks" subtitle="Live specials from today’s active Gigabite menu." />
       {isLoadingPromos ? <LoadingState /> : null}
       {!isLoadingPromos && promoError ? (
         <ErrorState message={promoError} onRetry={() => void loadPromos()} />

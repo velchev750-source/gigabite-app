@@ -16,7 +16,15 @@ import { ScreenContainer } from '@/components/screen-container';
 import { SectionTitle } from '@/components/section-title';
 import { GigabiteColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
-import { useCart, type CartItem } from '@/context/cart-context';
+import {
+  getCartItemKey,
+  getCartItemName,
+  getCartItemUnitPrice,
+  useCart,
+  type CartItem,
+  type HotDealCartItem,
+  type ProductCartItem,
+} from '@/context/cart-context';
 import { createMobileOrder } from '@/lib/orders-api';
 import { blurActiveWebElement } from '@/lib/web-focus';
 
@@ -82,10 +90,18 @@ export default function CartScreen() {
           delivery_type: deliveryType,
           delivery_address: deliveryType === 'delivery' ? deliveryAddress.trim() : null,
           customer_note: customerNote.trim() || null,
-          items: cart.items.map((item) => ({
-            product_id: item.product.id,
-            quantity: item.quantity,
-          })),
+          items: cart.items
+            .filter((item): item is ProductCartItem => item.type === 'product')
+            .map((item) => ({
+              product_id: item.product.id,
+              quantity: item.quantity,
+            })),
+          hot_deals: cart.items
+            .filter((item): item is HotDealCartItem => item.type === 'hotDeal')
+            .map((item) => ({
+              hot_deal_id: item.hotDeal.id,
+              quantity: item.quantity,
+            })),
         },
         token,
       );
@@ -145,7 +161,7 @@ export default function CartScreen() {
         <SectionTitle title="Order items" subtitle={`${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}`} />
         <View style={styles.list}>
           {cart.items.map((item) => (
-            <CartLineItem key={item.product.id} item={item} />
+            <CartLineItem key={getCartItemKey(item)} item={item} />
           ))}
         </View>
 
@@ -230,23 +246,35 @@ export default function CartScreen() {
 
 function CartLineItem({ item }: { item: CartItem }) {
   const cart = useCart();
+  const itemName = getCartItemName(item);
+  const itemUnitPrice = getCartItemUnitPrice(item);
 
   return (
     <View style={styles.itemCard}>
       <View style={styles.itemHeader}>
         <View style={styles.itemText}>
-          <Text style={styles.itemName}>{item.product.name}</Text>
-          <Text style={styles.itemPrice}>{formatPrice(item.product.price)} each</Text>
+          <Text style={styles.itemName}>{itemName}</Text>
+          {item.type === 'hotDeal' ? <Text style={styles.hotDealLabel}>Hot Deal</Text> : null}
+          <Text style={styles.itemPrice}>{formatPrice(itemUnitPrice)} each</Text>
         </View>
-        <Text style={styles.lineTotal}>{formatPrice(item.product.price * item.quantity)}</Text>
+        <Text style={styles.lineTotal}>{formatPrice(itemUnitPrice * item.quantity)}</Text>
       </View>
+      {item.type === 'hotDeal' ? (
+        <View style={styles.includedList}>
+          {item.hotDeal.included_products.map((product) => (
+            <Text key={product.id} style={styles.includedItem}>
+              {product.name} x{product.quantity}
+            </Text>
+          ))}
+        </View>
+      ) : null}
       <View style={styles.itemActions}>
         <View style={styles.stepper}>
-          <IconButton onPress={() => cart.decreaseItem(item.product)} icon="minus" />
+          <IconButton onPress={() => cart.decreaseCartItem(item)} icon="minus" />
           <Text style={styles.quantity}>{item.quantity}</Text>
-          <IconButton onPress={() => cart.increaseItem(item.product)} icon="plus" />
+          <IconButton onPress={() => cart.increaseCartItem(item)} icon="plus" />
         </View>
-        <Pressable onPress={() => cart.removeItem(item.product.id)} style={styles.removeButton}>
+        <Pressable onPress={() => cart.removeCartItem(item)} style={styles.removeButton}>
           <Trash2 color={GigabiteColors.rose} size={18} />
           <Text style={styles.removeText}>Remove</Text>
         </Pressable>
@@ -362,6 +390,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: Spacing.one,
+  },
+  hotDealLabel: {
+    color: GigabiteColors.amber,
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: Spacing.one,
+    textTransform: 'uppercase',
+  },
+  includedList: {
+    backgroundColor: GigabiteColors.amberSoft,
+    borderColor: `${GigabiteColors.amber}33`,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: Spacing.one,
+    padding: Spacing.two,
+  },
+  includedItem: {
+    color: GigabiteColors.textMuted,
+    fontSize: 13,
+    fontWeight: '800',
   },
   lineTotal: {
     color: GigabiteColors.emerald,

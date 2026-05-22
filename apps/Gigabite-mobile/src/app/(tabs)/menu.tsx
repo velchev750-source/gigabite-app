@@ -1,5 +1,5 @@
 import { ImageIcon, Minus, Plus, RefreshCcw, ShoppingCart } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
+import { HotDealCard } from '@/components/hot-deal-card';
 import { PrimaryButton } from '@/components/primary-button';
 import { ScreenContainer } from '@/components/screen-container';
 import { SectionTitle } from '@/components/section-title';
@@ -18,17 +19,20 @@ import { StatusBadge } from '@/components/status-badge';
 import { GigabiteColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useCart } from '@/context/cart-context';
+import { getMobileHotDeals, type MobileHotDeal } from '@/lib/hot-deals-api';
 import { getMobileMenu, type MobileMenuCategory, type MobileMenuProduct } from '@/lib/menu-api';
 import { blurActiveWebElement } from '@/lib/web-focus';
 
 export default function MenuScreen() {
   const [categories, setCategories] = useState<MobileMenuCategory[]>([]);
-  const [activeCategoryId, setActiveCategoryId] = useState<number | 'all'>('all');
+  const [hotDeals, setHotDeals] = useState<MobileHotDeal[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<MobileCategoryFilter>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loginMessage, setLoginMessage] = useState<string | null>(null);
   const { user } = useAuth();
   const cart = useCart();
+  const params = useLocalSearchParams<{ category?: string }>();
 
   async function loadMenu() {
     setIsLoading(true);
@@ -37,6 +41,8 @@ export default function MenuScreen() {
     try {
       const response = await getMobileMenu();
       setCategories(response.categories);
+      const hotDealsResponse = await getMobileHotDeals().catch(() => ({ hot_deals: [] }));
+      setHotDeals(hotDealsResponse.hot_deals);
     } catch {
       setErrorMessage('Could not load the Gigabite menu. Check the API URL and try again.');
     } finally {
@@ -52,11 +58,21 @@ export default function MenuScreen() {
     setLoginMessage(null);
   }, [user?.id]);
 
+  useEffect(() => {
+    if (params.category === 'hotDeal') {
+      setActiveCategoryId('hotDeal');
+    }
+  }, [params.category]);
+
   const products = useMemo(() => {
     const allProducts = categories.flatMap((category) => category.products);
 
     if (activeCategoryId === 'all') {
       return allProducts;
+    }
+
+    if (activeCategoryId === 'hotDeal') {
+      return [];
     }
 
     return allProducts.filter((product) => product.category_id === activeCategoryId);
@@ -101,12 +117,35 @@ export default function MenuScreen() {
             />
 
             <SectionTitle
-              title={activeCategoryId === 'all' ? 'All products' : getCategoryName(categories, activeCategoryId)}
-              subtitle={`${products.length} item${products.length === 1 ? '' : 's'} available`}
+              title={activeCategoryId === 'hotDeal' ? 'Hot Deal' : getCategoryName(categories, activeCategoryId)}
+              subtitle={
+                activeCategoryId === 'hotDeal'
+                  ? `${hotDeals.length} deal${hotDeals.length === 1 ? '' : 's'} available`
+                  : `${products.length} item${products.length === 1 ? '' : 's'} available`
+              }
             />
             {loginMessage ? <Text style={styles.loginMessage}>{loginMessage}</Text> : null}
 
-            {products.length ? (
+            {activeCategoryId === 'hotDeal' && hotDeals.length ? (
+              <View style={styles.productList}>
+                {hotDeals.map((hotDeal) => (
+                  <HotDealCard
+                    key={hotDeal.id}
+                    hotDeal={hotDeal}
+                    onAdd={() => {
+                      if (!requireLoginBeforeCart()) {
+                        return false;
+                      }
+
+                      cart.addHotDeal(hotDeal);
+                      return true;
+                    }}
+                  />
+                ))}
+              </View>
+            ) : null}
+
+            {activeCategoryId !== 'hotDeal' && products.length ? (
               <View style={styles.productList}>
                 {products.map((product) => (
                   <MenuProductCard
@@ -123,9 +162,15 @@ export default function MenuScreen() {
                   />
                 ))}
               </View>
-            ) : (
+            ) : null}
+
+            {activeCategoryId === 'hotDeal' && !hotDeals.length ? (
+              <EmptyState message="No active Hot Deal right now." />
+            ) : null}
+
+            {activeCategoryId !== 'hotDeal' && !products.length ? (
               <EmptyState message="No active products in this category yet." />
-            )}
+            ) : null}
           </>
         ) : null}
       </ScreenContainer>
@@ -150,8 +195,8 @@ function CategoryTabs({
   onSelect,
 }: {
   categories: MobileMenuCategory[];
-  activeCategoryId: number | 'all';
-  onSelect: (categoryId: number | 'all') => void;
+  activeCategoryId: MobileCategoryFilter;
+  onSelect: (categoryId: MobileCategoryFilter) => void;
 }) {
   const secondRowCategories = categories.filter(isSideCategory);
   const firstRowCategories = categories.filter((category) => !isSideCategory(category));
@@ -170,18 +215,21 @@ function CategoryTabs({
         ))}
       </View>
 
-      {secondRowCategories.length ? (
-        <View style={styles.categoryTabRow}>
-          {secondRowCategories.map((category) => (
-            <CategoryTab
-              key={category.id}
-              label={category.name}
-              isActive={activeCategoryId === category.id}
-              onPress={() => onSelect(category.id)}
-            />
-          ))}
-        </View>
-      ) : null}
+      <View style={styles.categoryTabRow}>
+        <CategoryTab
+          label="Hot Deal"
+          isActive={activeCategoryId === 'hotDeal'}
+          onPress={() => onSelect('hotDeal')}
+        />
+        {secondRowCategories.map((category) => (
+          <CategoryTab
+            key={category.id}
+            label={category.name}
+            isActive={activeCategoryId === category.id}
+            onPress={() => onSelect(category.id)}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -361,9 +409,15 @@ function EmptyState({ message = 'No active menu items are available yet.' }: { m
   );
 }
 
-function getCategoryName(categories: MobileMenuCategory[], categoryId: number | 'all') {
+type MobileCategoryFilter = number | 'all' | 'hotDeal';
+
+function getCategoryName(categories: MobileMenuCategory[], categoryId: MobileCategoryFilter) {
   if (categoryId === 'all') {
     return 'All products';
+  }
+
+  if (categoryId === 'hotDeal') {
+    return 'Hot Deal';
   }
 
   return categories.find((category) => category.id === categoryId)?.name ?? 'Products';
