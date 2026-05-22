@@ -106,15 +106,20 @@ export function CheckoutPage({
             })),
         }),
       });
-      const result = (await response.json()) as { message?: string };
+      const result = (await response.json()) as { message?: string; orderId?: number };
 
       if (!response.ok) {
         setMessage(result.message ?? "Order creation failed.");
         return;
       }
 
+      if (!result.orderId) {
+        setMessage("Order was created, but the confirmation page could not be opened.");
+        return;
+      }
+
       clearWebCart();
-      router.push("/account");
+      router.push(`/checkout/success?orderId=${result.orderId}`);
       router.refresh();
     } finally {
       setIsPending(false);
