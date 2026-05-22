@@ -14,11 +14,17 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   loadWebCart,
+  getComboCartKey,
+  getProductCartKey,
+  getWebCartItemKey,
+  getWebCartItemName,
+  getWebCartItemPrice,
   saveWebCart,
   updateWebCartQuantity,
   type WebCart,
   type WebCartItem,
 } from "@/lib/web-cart";
+import type { ComboOfferView } from "@/services/combo-offers";
 import type { MenuCategory, MenuProduct } from "@/services/menu";
 
 const fallbackImages: Record<string, string> = {
@@ -45,16 +51,20 @@ function getProductImage(product: MenuProduct, categoryName: string) {
 
 export function MenuPage({
   categories,
+  comboOffers,
   initialCategoryName,
+  initialSection,
   userRole,
 }: {
   categories: MenuCategory[];
+  comboOffers: ComboOfferView[];
   initialCategoryName?: string;
+  initialSection?: string;
   userRole: "user" | "staff" | "manager" | null;
 }) {
   const router = useRouter();
-  const [activeCategoryId, setActiveCategoryId] = useState<number | "all">(() =>
-    getCategoryIdByName(categories, initialCategoryName),
+  const [activeCategoryId, setActiveCategoryId] = useState<number | "all" | "hotDeals">(() =>
+    getInitialActiveCategoryId(categories, initialCategoryName, initialSection),
   );
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [cart, setCart] = useState<WebCart>({});
@@ -75,13 +85,17 @@ export function MenuPage({
       return products;
     }
 
+    if (activeCategoryId === "hotDeals") {
+      return [];
+    }
+
     return products.filter((product) => product.categoryId === activeCategoryId);
   }, [activeCategoryId, products]);
 
   const cartItems = Object.values(cart);
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cartItems.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + getWebCartItemPrice(item) * item.quantity,
     0,
   );
 
@@ -115,11 +129,12 @@ export function MenuPage({
     const quantity = getQuantity(product.id);
 
     setCart((current) => {
-      const existing = current[product.id];
+      const cartKey = getProductCartKey(product.id);
+      const existing = current[cartKey];
 
       return {
         ...current,
-        [product.id]: {
+        [cartKey]: {
           product,
           quantity: (existing?.quantity ?? 0) + quantity,
         },
@@ -128,12 +143,35 @@ export function MenuPage({
     setCartMessage(`${product.name} added to your cart.`);
   }
 
-  function updateCartItemQuantity(productId: number, quantity: number) {
-    setCart((current) => updateWebCartQuantity(current, productId, quantity));
+  function addComboToCart(comboOffer: ComboOfferView) {
+    setCart((current) => {
+      const cartKey = getComboCartKey(comboOffer.id);
+      const existing = current[cartKey];
+
+      return {
+        ...current,
+        [cartKey]: {
+          type: "combo",
+          comboOfferId: comboOffer.id,
+          name: comboOffer.name,
+          description: comboOffer.description,
+          discountPercent: comboOffer.discountPercent,
+          originalPrice: comboOffer.originalPrice,
+          discountedPrice: comboOffer.finalPrice,
+          includedProducts: comboOffer.products,
+          quantity: (existing?.quantity ?? 0) + 1,
+        },
+      };
+    });
+    setCartMessage(`${comboOffer.name} added to your cart.`);
   }
 
-  function removeCartItem(productId: number) {
-    setCart((current) => updateWebCartQuantity(current, productId, 0));
+  function updateCartItemQuantity(item: WebCartItem, quantity: number) {
+    setCart((current) => updateWebCartQuantity(current, getWebCartItemKey(item), quantity));
+  }
+
+  function removeCartItem(item: WebCartItem) {
+    setCart((current) => updateWebCartQuantity(current, getWebCartItemKey(item), 0));
   }
 
   function goToCheckout() {
@@ -199,14 +237,47 @@ export function MenuPage({
                   {category.name}
                 </button>
               ))}
+              {comboOffers.length ? (
+                <button
+                  onClick={() => setActiveCategoryId("hotDeals")}
+                  className={`shrink-0 rounded-md px-5 py-3 text-sm font-black transition ${
+                    activeCategoryId === "hotDeals"
+                      ? "bg-amber-400 text-zinc-950"
+                      : "border border-white/10 bg-white/5 text-zinc-200 hover:border-amber-300/60 hover:text-amber-200"
+                  }`}
+                >
+                  Hot Deal
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
 
+        {comboOffers.length && (activeCategoryId === "all" || activeCategoryId === "hotDeals") ? (
+          <section id="hot-deals" className="scroll-mt-24 bg-zinc-950 px-4 pb-10 sm:px-6 lg:px-8">
+            <span id="combo-deals" className="block scroll-mt-24" aria-hidden="true" />
+            <div className="mx-auto max-w-7xl">
+              <div className="mb-6">
+                <p className="text-sm font-semibold uppercase text-amber-300">Hot Deal</p>
+                <h2 className="mt-2 text-3xl font-black text-white">Fixed 3-product offers</h2>
+              </div>
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {comboOffers.map((comboOffer) => (
+                  <ComboOfferCard
+                    key={comboOffer.id}
+                    comboOffer={comboOffer}
+                    onAdd={() => addComboToCart(comboOffer)}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section id="cart" className="scroll-mt-24 bg-zinc-900 px-4 pb-28 pt-8 sm:px-6 lg:px-8 lg:pb-20">
           <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_360px]">
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {visibleProducts.map((product) => (
+              {visibleProducts.length ? visibleProducts.map((product) => (
                 <article
                   key={product.id}
                   className="group overflow-hidden rounded-lg border border-white/10 bg-zinc-950 shadow-xl shadow-black/25 transition duration-300 hover:-translate-y-2 hover:border-rose-400/40"
@@ -274,7 +345,11 @@ export function MenuPage({
                     </div>
                   </div>
                 </article>
-              ))}
+              )) : (
+                <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+                  Choose a menu category or add a hot deal above.
+                </div>
+              )}
             </div>
 
             <aside className="hidden lg:block">
@@ -284,9 +359,9 @@ export function MenuPage({
                   totalItems={totalItems}
                   totalPrice={totalPrice}
                   userRole={userRole}
-                  onDecrease={(item) => updateCartItemQuantity(item.product.id, item.quantity - 1)}
-                  onIncrease={(item) => updateCartItemQuantity(item.product.id, item.quantity + 1)}
-                  onRemove={(item) => removeCartItem(item.product.id)}
+                  onDecrease={(item) => updateCartItemQuantity(item, item.quantity - 1)}
+                  onIncrease={(item) => updateCartItemQuantity(item, item.quantity + 1)}
+                  onRemove={(item) => removeCartItem(item)}
                   onCheckout={goToCheckout}
                 />
               </div>
@@ -322,6 +397,62 @@ export function MenuPage({
   );
 }
 
+function ComboOfferCard({
+  comboOffer,
+  onAdd,
+}: {
+  comboOffer: ComboOfferView;
+  onAdd: () => void;
+}) {
+  const imageUrl =
+    comboOffer.imageUrl ||
+    "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=1200&q=90";
+
+  return (
+    <article className="group overflow-hidden rounded-lg border border-white/10 bg-zinc-900 shadow-xl shadow-black/25 transition duration-300 hover:-translate-y-2 hover:border-amber-300/40">
+      <div className="relative h-56 overflow-hidden">
+        <Image
+          src={imageUrl}
+          alt={comboOffer.name}
+          fill
+          sizes="(min-width: 1280px) 25vw, (min-width: 768px) 50vw, 100vw"
+          className="object-cover transition duration-500 group-hover:scale-110"
+        />
+        <span className="absolute right-4 top-4 rounded-md bg-rose-500/90 px-3 py-1 text-xs font-black text-white backdrop-blur">
+          -{comboOffer.discountPercent}%
+        </span>
+      </div>
+      <div className="p-5">
+        <h2 className="text-xl font-black text-white">{comboOffer.name}</h2>
+        <p className="mt-3 min-h-12 text-sm leading-6 text-zinc-300">{comboOffer.description}</p>
+        <ul className="mt-4 grid gap-1 text-sm font-semibold text-zinc-300">
+          {comboOffer.products.map((product) => (
+            <li key={product.id}>- {product.name} x{product.quantity}</li>
+          ))}
+        </ul>
+        <div className="mt-5 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-zinc-500 line-through">
+              {formatPrice(comboOffer.originalPrice)}
+            </p>
+            <p className="text-2xl font-black text-emerald-200">
+              {formatPrice(comboOffer.finalPrice)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-rose-500 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-400"
+          >
+            <ShoppingCart className="size-4" aria-hidden="true" />
+            Add Hot Deal
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function getCategoryIdByName(categories: MenuCategory[], categoryName?: string) {
   if (!categoryName) {
     return "all";
@@ -333,6 +464,20 @@ function getCategoryIdByName(categories: MenuCategory[], categoryName?: string) 
   );
 
   return matchingCategory?.id ?? "all";
+}
+
+function getInitialActiveCategoryId(
+  categories: MenuCategory[],
+  categoryName?: string,
+  sectionName?: string,
+) {
+  const normalizedSectionName = sectionName?.trim().toLowerCase();
+
+  if (normalizedSectionName === "hot-deals" || normalizedSectionName === "combo-deals") {
+    return "hotDeals";
+  }
+
+  return getCategoryIdByName(categories, categoryName);
 }
 
 function CartSummary({
@@ -369,16 +514,26 @@ function CartSummary({
         {cartItems.length ? (
           cartItems.map((item) => (
             <div
-              key={item.product.id}
+              key={getWebCartItemKey(item)}
               className="grid gap-3 rounded-md bg-white/[0.04] p-3"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-black text-white">{item.product.name}</p>
+                  <p className="text-sm font-black text-white">{getWebCartItemName(item)}</p>
+                  {item.type === "combo" ? (
+                    <p className="mt-1 text-xs font-black uppercase text-amber-200">Hot Deal</p>
+                  ) : null}
                   <p className="mt-1 text-xs text-zinc-400">Qty {item.quantity}</p>
+                  {item.type === "combo" ? (
+                    <ul className="mt-2 grid gap-1 text-xs font-semibold text-zinc-400">
+                      {item.includedProducts.map((product) => (
+                        <li key={product.id}>- {product.name} x{product.quantity}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
                 <p className="text-sm font-black text-emerald-200">
-                  {formatPrice(item.product.price * item.quantity)}
+                  {formatPrice(getWebCartItemPrice(item) * item.quantity)}
                 </p>
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -387,7 +542,7 @@ function CartSummary({
                     type="button"
                     onClick={() => onDecrease(item)}
                     className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
-                    aria-label={`Decrease ${item.product.name} quantity`}
+                    aria-label={`Decrease ${getWebCartItemName(item)} quantity`}
                   >
                     <Minus className="size-4" aria-hidden="true" />
                   </button>
@@ -398,7 +553,7 @@ function CartSummary({
                     type="button"
                     onClick={() => onIncrease(item)}
                     className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
-                    aria-label={`Increase ${item.product.name} quantity`}
+                    aria-label={`Increase ${getWebCartItemName(item)} quantity`}
                   >
                     <Plus className="size-4" aria-hidden="true" />
                   </button>

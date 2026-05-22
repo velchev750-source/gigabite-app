@@ -19,7 +19,6 @@ import {
   Salad,
   Send,
   ShieldCheck,
-  Star,
   Store,
   UtensilsCrossed,
   WalletCards,
@@ -28,6 +27,7 @@ import {
 import { LogoutButton } from "@/components/auth/logout-button";
 import { NavbarCartLink } from "@/components/cart/navbar-cart-link";
 import { PromoDealsSection } from "@/components/home/promo-deals-section";
+import { getActiveComboOffers, type ComboOfferView } from "@/services/combo-offers";
 import { getCurrentUser, getDashboardPath } from "@/services/auth";
 import { getPromoProducts } from "@/services/menu";
 
@@ -87,7 +87,7 @@ const reasons = [
   },
   {
     title: "Best Prices",
-    text: "Generous portions, smart combos, and weekly value deals.",
+    text: "Generous portions, a smart hot deal, and weekly value picks.",
     icon: WalletCards,
   },
   {
@@ -96,6 +96,13 @@ const reasons = [
     icon: ShieldCheck,
   },
 ];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(value);
+}
 
 function SectionHeader({
   eyebrow,
@@ -277,6 +284,12 @@ function Hero() {
               Promo Deals <ArrowRight className="size-5" aria-hidden="true" />
             </Link>
             <Link
+              href="#hot-deal"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-rose-500 px-6 py-4 text-base font-black text-white shadow-xl shadow-rose-500/20 transition hover:-translate-y-1 hover:bg-rose-400"
+            >
+              Hot Deal <BadgePercent className="size-5" aria-hidden="true" />
+            </Link>
+            <Link
               href="/menu"
               className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-6 py-4 text-base font-bold text-white backdrop-blur transition hover:-translate-y-1 hover:border-emerald-300/60 hover:text-emerald-200"
             >
@@ -335,39 +348,60 @@ function CategoryCard({ category }: { category: (typeof categories)[number] }) {
   );
 }
 
-function PromotionsBanner() {
+function PromotionsBanner({ comboOffer }: { comboOffer: ComboOfferView | null }) {
+  if (!comboOffer) {
+    return null;
+  }
+
+  const imageUrl =
+    comboOffer.imageUrl ||
+    "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=1200&q=90";
+
   return (
-    <section className="bg-zinc-950 px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-lg border border-amber-300/20 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 lg:grid-cols-[1.1fr_0.9fr]">
+    <section id="hot-deal" className="scroll-mt-24 bg-zinc-950 px-4 py-16 sm:px-6 lg:px-8">
+      <Link
+        href="/menu?section=hot-deals"
+        aria-label={`View hot deal ${comboOffer.name}`}
+        className="group mx-auto grid max-w-7xl cursor-pointer overflow-hidden rounded-lg border border-amber-300/20 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 shadow-2xl shadow-amber-500/10 transition hover:-translate-y-1 hover:border-amber-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 lg:grid-cols-[1.1fr_0.9fr]"
+      >
         <div className="p-8 text-zinc-950 sm:p-10 lg:p-14">
           <div className="inline-flex items-center gap-2 rounded-md bg-zinc-950/90 px-3 py-2 text-sm font-black text-amber-200">
             <BadgePercent className="size-4" aria-hidden="true" />
-            Limited weekly offer
+            Hot Combo -{comboOffer.discountPercent}%
           </div>
           <h2 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-            Combo rush: save 25% on selected meals.
+            {comboOffer.name}
           </h2>
           <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-zinc-900/80">
-            Mix a burger, side, and drink into one crave-ready bundle. Available
-            while the kitchen board is hot.
+            {comboOffer.description}
           </p>
-          <Link
-            href="#products"
-            className="mt-8 inline-flex items-center gap-2 rounded-md bg-zinc-950 px-6 py-4 text-base font-black text-white transition hover:-translate-y-1 hover:bg-zinc-900"
-          >
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <span className="text-lg font-black text-zinc-900/60 line-through">
+              {formatCurrency(comboOffer.originalPrice)}
+            </span>
+            <span className="text-3xl font-black text-zinc-950">
+              {formatCurrency(comboOffer.finalPrice)}
+            </span>
+          </div>
+          <ul className="mt-5 grid gap-1 text-sm font-black text-zinc-900/80 sm:grid-cols-3">
+            {comboOffer.products.map((product) => (
+              <li key={product.id}>{product.name}</li>
+            ))}
+          </ul>
+          <span className="mt-8 inline-flex items-center gap-2 rounded-md bg-zinc-950 px-6 py-4 text-base font-black text-white transition group-hover:-translate-y-1 group-hover:bg-zinc-900">
             Claim Deal <ArrowRight className="size-5" aria-hidden="true" />
-          </Link>
+          </span>
         </div>
         <div className="relative min-h-72">
           <Image
-            src="https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=1200&q=90"
-            alt="Combo meal with burgers, fries, and drinks"
+            src={imageUrl}
+            alt={comboOffer.name}
             fill
             sizes="(min-width: 1024px) 45vw, 100vw"
-            className="object-cover"
+            className="object-cover transition duration-500 group-hover:scale-105"
           />
         </div>
-      </div>
+      </Link>
     </section>
   );
 }
@@ -378,50 +412,43 @@ function AppPromotion() {
       <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-lg border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-950 to-emerald-950 p-6 sm:p-10 lg:grid-cols-2 lg:p-14">
         <div>
           <p className="text-sm font-semibold uppercase text-emerald-300">
-            Mobile app coming soon
+            Mobile app
           </p>
           <h2 className="mt-4 text-3xl font-black text-white sm:text-5xl">
             Your next order, one thumb away.
           </h2>
           <p className="mt-5 max-w-xl text-base leading-7 text-zinc-300">
-            Save favorite meals, track delivery, and unlock app-only rewards
-            with the future Gigabite mobile experience.
+            Order faster, browse the full menu, and access the Gigabite mobile
+            experience directly from your browser.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <button className="rounded-md border border-white/10 bg-white px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300">
-              App Store
-            </button>
-            <button className="rounded-md border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white transition hover:border-emerald-300/60 hover:text-emerald-200">
-              Google Play
-            </button>
+            <Link
+              href="https://gigabitefoodapp-mobile.netlify.app/menu"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center rounded-md border border-white/10 bg-white px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
+            >
+              Open Mobile App
+            </Link>
           </div>
         </div>
         <div className="mx-auto w-full max-w-xs rounded-[2rem] border border-white/15 bg-zinc-950 p-4 shadow-2xl shadow-emerald-500/10">
           <div className="rounded-[1.5rem] bg-zinc-900 p-4">
             <div className="mb-4 h-7 rounded-full bg-white/10" />
-            <div className="relative h-48 overflow-hidden rounded-lg">
+            <div className="relative h-[520px] overflow-hidden rounded-lg border border-white/10 bg-zinc-950">
               <Image
-                src="https://images.unsplash.com/photo-1565299507177-b0ac66763828?auto=format&fit=crop&w=900&q=85"
-                alt="Mobile app burger preview"
+                src="/images/mobile-app-preview.webp"
+                alt="Gigabite mobile app menu preview"
                 fill
                 sizes="320px"
-                className="object-cover"
+                className="object-cover object-top"
               />
             </div>
-            <div className="mt-4 rounded-lg bg-white p-4 text-zinc-950">
-              <p className="text-sm font-black">Giga Smash Burger</p>
-              <div className="mt-2 flex items-center gap-1 text-amber-500">
-                {[1, 2, 3, 4, 5].map((item) => (
-                  <Star
-                    key={item}
-                    className="size-4 fill-current"
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
-              <button className="mt-4 w-full rounded-md bg-rose-500 py-3 text-sm font-black text-white">
-                Quick order
-              </button>
+            <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm font-black text-white">Gigabite mobile menu</p>
+              <p className="mt-1 text-xs font-semibold text-zinc-400">
+                Live browser access for quick ordering.
+              </p>
             </div>
           </div>
         </div>
@@ -487,7 +514,11 @@ export function Footer() {
 }
 
 export async function HomePage() {
-  const promoProducts = await getPromoProducts();
+  const [promoProducts, comboOffers] = await Promise.all([
+    getPromoProducts(),
+    getActiveComboOffers(),
+  ]);
+  const featuredComboOffer = comboOffers[0] ?? null;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -514,7 +545,7 @@ export async function HomePage() {
           />
           <PromoDealsSection products={promoProducts} />
         </section>
-        <PromotionsBanner />
+        <PromotionsBanner comboOffer={featuredComboOffer} />
         <section id="why-gigabite" className="bg-zinc-900 px-4 py-20 sm:px-6 lg:px-8">
           <SectionHeader
             eyebrow="Why Gigabite"

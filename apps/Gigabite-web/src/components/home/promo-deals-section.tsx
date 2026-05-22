@@ -5,6 +5,7 @@ import { ShoppingCart } from "lucide-react";
 import { useState } from "react";
 
 import {
+  getProductCartKey,
   loadWebCart,
   saveWebCart,
   type WebCartItem,
@@ -39,7 +40,8 @@ function getProductImage(product: PromoProduct) {
 
 function addPromoProductToCart(product: PromoProduct) {
   const cart = loadWebCart();
-  const existing = cart[product.id];
+  const cartKey = getProductCartKey(product.id);
+  const existing = cart[cartKey];
   const cartItem: WebCartItem = {
     product: {
       id: product.id,
@@ -51,7 +53,7 @@ function addPromoProductToCart(product: PromoProduct) {
 
   saveWebCart({
     ...cart,
-    [product.id]: cartItem,
+    [cartKey]: cartItem,
   });
 }
 

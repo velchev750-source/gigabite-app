@@ -17,6 +17,18 @@ export const orderItemInputSchema = z.object({
     .max(50, "Order item quantity is too large."),
 });
 
+export const comboOrderItemInputSchema = z.object({
+  comboOfferId: z.coerce
+    .number({ invalid_type_error: "Every hot deal item must reference a valid hot deal." })
+    .int("Every hot deal item must reference a valid hot deal.")
+    .positive("Every hot deal item must reference a valid hot deal."),
+  quantity: z.coerce
+    .number({ invalid_type_error: "Hot deal quantity must be a positive integer." })
+    .int("Hot deal quantity must be a positive integer.")
+    .min(1, "Hot deal quantity must be a positive integer.")
+    .max(20, "Hot deal quantity is too large."),
+});
+
 export const createOrderSchema = z
   .object({
     deliveryType: z.enum(["pickup", "delivery"], {
@@ -36,7 +48,12 @@ export const createOrderSchema = z
       .optional()
       .nullable()
       .transform((value) => value || null),
-    items: z.array(orderItemInputSchema).min(1, "At least one order item is required."),
+    items: z.array(orderItemInputSchema).default([]),
+    combos: z.array(comboOrderItemInputSchema).default([]),
+  })
+  .refine((data) => data.items.length > 0 || data.combos.length > 0, {
+    message: "At least one order item is required.",
+    path: ["items"],
   })
   .refine((data) => data.deliveryType !== "delivery" || Boolean(data.deliveryAddress), {
     message: "Delivery address is required for delivery orders.",

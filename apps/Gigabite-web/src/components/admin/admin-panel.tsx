@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BadgePercent,
   Ban,
   CheckCircle2,
   ChefHat,
@@ -105,6 +106,12 @@ type ManagerOrdersPage = {
     };
     items: Array<{
       id: number;
+      comboOfferId: number | null;
+      comboGroupKey: string | null;
+      comboName: string | null;
+      comboDiscountPercent: number | null;
+      comboOriginalPrice: string | null;
+      comboFinalPrice: string | null;
       productName: string;
       quantity: number;
       unitPrice: string;
@@ -118,7 +125,13 @@ type ManagerOrdersPage = {
   sortBy?: OrderSortOption;
 };
 type ManagerOrder = ManagerOrdersPage["orders"][number];
-type ManagerPanelTab = ManagerOrderTab | "createUser" | "createStaff" | "editStaff" | "products";
+type ManagerPanelTab =
+  | ManagerOrderTab
+  | "createUser"
+  | "createStaff"
+  | "editStaff"
+  | "products"
+  | "comboOffers";
 type ManagerOrderStatus = ManagerOrder["status"];
 type PromoFilter = "all" | "promo" | "nonPromo";
 
@@ -147,6 +160,36 @@ type ManagerCategory = {
   name: string;
   isActive: boolean;
   sortOrder: number;
+};
+
+type ManagerComboOffer = {
+  id: number;
+  name: string;
+  description: string;
+  discountPercent: number;
+  imageUrl: string | null;
+  isActive: boolean;
+  originalPrice: number;
+  discountAmount: number;
+  finalPrice: number;
+  products: Array<{
+    id: number;
+    name: string;
+    price: number;
+    quantity: number;
+  }>;
+};
+
+type ManagerComboProduct = {
+  id: number;
+  name: string;
+  price: number;
+  isActive: boolean;
+};
+
+type ManagerComboOffersData = {
+  comboOffers: ManagerComboOffer[];
+  products: ManagerComboProduct[];
 };
 
 const emptyActionState: AdminFormState = {
@@ -228,6 +271,12 @@ const tabs = [
     icon: Package,
   },
   {
+    id: "comboOffers",
+    label: "Hot Deal",
+    description: "Manage fixed 3-product hot deal",
+    icon: BadgePercent,
+  },
+  {
     id: "createStaff",
     label: "Create Staff",
     description: "Create staff accounts",
@@ -281,6 +330,7 @@ export function AdminPanel({
   const [staffPageNumber, setStaffPageNumber] = useState(initialStaffPage.page);
   const [productsData, setProductsData] = useState<ManagerProductsData | null>(null);
   const [productsPage, setProductsPage] = useState(1);
+  const [comboOffersData, setComboOffersData] = useState<ManagerComboOffersData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -350,6 +400,19 @@ export function AdminPanel({
     setProductsData((await response.json()) as ManagerProductsData);
   }, []);
 
+  const refreshComboOffers = useCallback(async () => {
+    const response = await fetch("/api/admin/combo-offers", {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to refresh hot deal.");
+    }
+
+    setComboOffersData((await response.json()) as ManagerComboOffersData);
+  }, []);
+
   const refreshActiveData = useCallback(
     async (tab: ManagerPanelTab = activeTab) => {
       setIsRefreshing(true);
@@ -369,6 +432,10 @@ export function AdminPanel({
         if (tab === "products") {
           await refreshProducts();
         }
+
+        if (tab === "comboOffers") {
+          await refreshComboOffers();
+        }
       } catch (refreshError) {
         setError(
           refreshError instanceof Error
@@ -383,6 +450,7 @@ export function AdminPanel({
       activeTab,
       pageByOrderTab,
       refreshMetrics,
+      refreshComboOffers,
       refreshOrderTab,
       refreshProducts,
       refreshStaffPage,
@@ -408,6 +476,10 @@ export function AdminPanel({
 
     if (tab === "products" && !productsData) {
       void refreshProducts();
+    }
+
+    if (tab === "comboOffers" && !comboOffersData) {
+      void refreshComboOffers();
     }
   }
 
@@ -519,6 +591,13 @@ export function AdminPanel({
               isRefreshing={isRefreshing}
               onPageChange={goToProductsPage}
               onProductsUpdated={() => refreshActiveData("products")}
+            />
+          ) : null}
+          {activeTab === "comboOffers" ? (
+            <ComboOffersPanel
+              comboOffersData={comboOffersData}
+              isRefreshing={isRefreshing}
+              onComboOffersUpdated={() => refreshActiveData("comboOffers")}
             />
           ) : null}
         </section>
@@ -855,6 +934,348 @@ function ProductsPanel({
   );
 }
 
+function ComboOffersPanel({
+  comboOffersData,
+  isRefreshing,
+  onComboOffersUpdated,
+}: {
+  comboOffersData: ManagerComboOffersData | null;
+  isRefreshing: boolean;
+  onComboOffersUpdated: () => void;
+}) {
+  const [editingComboOffer, setEditingComboOffer] = useState<ManagerComboOffer | "new" | null>(null);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-6 flex shrink-0 flex-col justify-between gap-3 lg:flex-row lg:items-end">
+        <div>
+          <h2 className="text-2xl font-black text-white">Hot Deal</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">
+            Create fixed 3-product hot deal offers with server-calculated discounts.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {isRefreshing ? (
+            <span className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">
+              Refreshing
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setEditingComboOffer("new")}
+            className="rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
+          >
+            New Hot Deal
+          </button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        {comboOffersData ? (
+          comboOffersData.comboOffers.length ? (
+            <div className="grid gap-3">
+              {comboOffersData.comboOffers.map((comboOffer) => (
+                <article
+                  key={comboOffer.id}
+                  className="grid gap-4 rounded-lg border border-white/10 bg-zinc-950 p-4 lg:grid-cols-[1fr_auto] lg:items-center"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xl font-black text-white">{comboOffer.name}</h3>
+                      <span className="rounded-md border border-rose-300/30 bg-rose-400/10 px-2 py-1 text-xs font-black text-rose-100">
+                        -{comboOffer.discountPercent}%
+                      </span>
+                      <span
+                        className={`rounded-md border px-2 py-1 text-xs font-black ${
+                          comboOffer.isActive
+                            ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-100"
+                            : "border-zinc-300/20 bg-white/10 text-zinc-300"
+                        }`}
+                      >
+                        {comboOffer.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      {comboOffer.description || "No description."}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-zinc-300">
+                      {comboOffer.products.map((product) => product.name).join(" + ")}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3 lg:items-end">
+                    <p className="text-sm font-bold text-zinc-500 line-through">
+                      {formatCurrency(comboOffer.originalPrice)}
+                    </p>
+                    <p className="text-2xl font-black text-emerald-200">
+                      {formatCurrency(comboOffer.finalPrice)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setEditingComboOffer(comboOffer)}
+                      className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
+                    >
+                      <FilePenLine className="size-4" aria-hidden="true" />
+                      Edit
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+              No hot deal yet.
+            </div>
+          )
+        ) : (
+          <div className="rounded-md border border-dashed border-white/15 p-5 text-sm leading-6 text-zinc-400">
+            Loading hot deal...
+          </div>
+        )}
+      </div>
+
+      {editingComboOffer && comboOffersData ? (
+        <ComboOfferEditor
+          comboOffer={editingComboOffer === "new" ? null : editingComboOffer}
+          products={comboOffersData.products}
+          onClose={() => setEditingComboOffer(null)}
+          onSaved={() => {
+            setEditingComboOffer(null);
+            onComboOffersUpdated();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ComboOfferEditor({
+  comboOffer,
+  products,
+  onClose,
+  onSaved,
+}: {
+  comboOffer: ManagerComboOffer | null;
+  products: ManagerComboProduct[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: comboOffer?.name ?? "",
+    description: comboOffer?.description ?? "",
+    discountPercent: String(comboOffer?.discountPercent ?? 20),
+    imageUrl: comboOffer?.imageUrl ?? "",
+    isActive: comboOffer?.isActive ?? true,
+    productIds: comboOffer?.products.map((product) => String(product.id)) ?? ["", "", ""],
+  });
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const selectedProducts = form.productIds
+    .map((productId) => products.find((product) => product.id === Number(productId)))
+    .filter((product): product is ManagerComboProduct => Boolean(product));
+  const originalPrice = selectedProducts.reduce((sum, product) => sum + product.price, 0);
+  const discountPercent = Number(form.discountPercent) || 0;
+  const discountAmount = originalPrice * (discountPercent / 100);
+  const finalPrice = Math.max(0, originalPrice - discountAmount);
+
+  async function saveComboOffer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(
+        comboOffer ? `/api/admin/combo-offers/${comboOffer.id}` : "/api/admin/combo-offers",
+        {
+          method: comboOffer ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            name: form.name,
+            description: form.description,
+            discountPercent: Number(form.discountPercent),
+            imageUrl: form.imageUrl,
+            isActive: form.isActive,
+            productIds: form.productIds.map(Number),
+          }),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(data?.message ?? "Unable to save hot deal.");
+      }
+
+      onSaved();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to save hot deal.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function uploadImage(file: File) {
+    setIsUploading(true);
+    setMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/combo-offers/upload-image", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+      const data = (await response.json()) as { publicUrl?: string; message?: string };
+
+      if (!response.ok || !data.publicUrl) {
+        throw new Error(data.message ?? "Image upload failed.");
+      }
+
+      setForm((current) => ({ ...current, imageUrl: data.publicUrl ?? "" }));
+      setMessage("Image uploaded. Save changes to update the hot deal.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 px-4 py-6">
+      <div className="ml-auto flex h-full w-full max-w-2xl flex-col rounded-lg border border-white/10 bg-zinc-900 p-5 shadow-2xl shadow-black/40">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase text-amber-300">Hot deal editor</p>
+            <h2 className="mt-2 text-2xl font-black text-white">
+              {comboOffer ? comboOffer.name : "New hot deal"}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-10 place-items-center rounded-md border border-white/10 text-zinc-300 transition hover:border-amber-300/60 hover:text-amber-200"
+            aria-label="Close hot deal editor"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <form onSubmit={saveComboOffer} className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="grid gap-4">
+            <EditorInput
+              label="Hot deal name"
+              value={form.name}
+              onChange={(value) => setForm((current) => ({ ...current, name: value }))}
+            />
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-zinc-200">Description</span>
+              <textarea
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
+                className="min-h-24 rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/70"
+              />
+            </label>
+            <EditorInput
+              label="Discount percent"
+              type="number"
+              min="1"
+              max="90"
+              value={form.discountPercent}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, discountPercent: value }))
+              }
+            />
+            <EditorInput
+              label="Image URL"
+              value={form.imageUrl}
+              onChange={(value) => setForm((current) => ({ ...current, imageUrl: value }))}
+            />
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm font-black text-amber-200 transition hover:bg-white/5">
+              <Upload className="size-4" aria-hidden="true" />
+              {isUploading ? "Uploading" : "Upload hot deal image"}
+              <input
+                type="file"
+                accept="image/webp,image/png,image/jpeg"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void uploadImage(file);
+                  }
+                }}
+              />
+            </label>
+            {[0, 1, 2].map((index) => (
+              <label key={index} className="grid gap-2">
+                <span className="text-sm font-black text-zinc-200">Product {index + 1}</span>
+                <select
+                  value={form.productIds[index] ?? ""}
+                  onChange={(event) =>
+                    setForm((current) => {
+                      const productIds = [...current.productIds];
+                      productIds[index] = event.target.value;
+                      return { ...current, productIds };
+                    })
+                  }
+                  className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/70"
+                >
+                  <option value="">Choose active product</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - {formatCurrency(product.price)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <ToggleField
+              label="Active hot deal"
+              checked={form.isActive}
+              onChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))}
+            />
+            <div className="rounded-md border border-white/10 bg-zinc-950 p-4">
+              <p className="text-sm font-black text-white">Price preview</p>
+              <div className="mt-3 grid gap-2 text-sm font-semibold text-zinc-300">
+                <p>Original price: {formatCurrency(originalPrice)}</p>
+                <p>Discount amount: {formatCurrency(discountAmount)}</p>
+                <p className="text-lg font-black text-emerald-200">
+                  Final hot deal price: {formatCurrency(finalPrice)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {message ? (
+            <p className="mt-4 rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-zinc-200">
+              {message}
+            </p>
+          ) : null}
+
+          <div className="sticky bottom-0 mt-6 flex flex-col gap-3 border-t border-white/10 bg-zinc-900 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-white/10 px-4 py-3 text-sm font-black text-white transition hover:border-amber-300/50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || isUploading}
+              className="rounded-md bg-amber-400 px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSaving ? "Saving" : "Save hot deal"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ProductRow({ product, onEdit }: { product: ManagerProduct; onEdit: () => void }) {
   return (
     <article className="grid gap-4 rounded-lg border border-white/10 bg-zinc-950 p-4 lg:grid-cols-[88px_1fr_auto] lg:items-center">
@@ -1154,12 +1575,16 @@ function EditorInput({
   onChange,
   type = "text",
   step,
+  min,
+  max,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   step?: string;
+  min?: string;
+  max?: string;
 }) {
   return (
     <label className="grid gap-2">
@@ -1167,6 +1592,8 @@ function EditorInput({
       <input
         type={type}
         step={step}
+        min={min}
+        max={max}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/70"
@@ -1230,9 +1657,7 @@ function ManagerOrderCard({
     order.deliveryType === "delivery"
       ? order.deliveryAddress ?? "Delivery address not provided"
       : "Restaurant counter";
-  const itemsSummary = order.items
-    .map((item) => `${item.productName} x${item.quantity}`)
-    .join(" • ");
+  const itemsSummary = formatOrderItemsSummary(order.items);
   const editorKey = (editor: string) => `${order.id}:${editor}`;
   const openEditor = (editor: string) => {
     const nextEditor = editorKey(editor);
@@ -1698,10 +2123,43 @@ function useActionSuccess(state: AdminFormState, onSuccess: () => void) {
 }
 
 function formatMoney(value: string) {
+  return formatCurrency(Number(value));
+}
+
+function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-  }).format(Number(value));
+  }).format(value);
+}
+
+function formatOrderItemsSummary(items: ManagerOrder["items"]) {
+  const groupedCombos = new Map<string, ManagerOrder["items"]>();
+  const normalItems: string[] = [];
+
+  for (const item of items) {
+    if (item.comboGroupKey && item.comboName) {
+      groupedCombos.set(item.comboGroupKey, [
+        ...(groupedCombos.get(item.comboGroupKey) ?? []),
+        item,
+      ]);
+      continue;
+    }
+
+    normalItems.push(`${item.productName} x${item.quantity}`);
+  }
+
+  const comboSummaries = Array.from(groupedCombos.values()).map((comboItems) => {
+    const firstItem = comboItems[0];
+    const heading = `Hot Deal: ${firstItem.comboName} -${firstItem.comboDiscountPercent ?? 0}%`;
+    const contents = comboItems
+      .map((item) => `${item.productName} x${item.quantity}`)
+      .join(", ");
+
+    return `${heading}: ${contents}`;
+  });
+
+  return [...comboSummaries, ...normalItems].join(" • ");
 }
 
 function formatDate(value: Date | string) {
@@ -1767,3 +2225,4 @@ function getTabCount(metrics: ManagerMetrics, tab: ManagerPanelTab) {
 
   return null;
 }
+

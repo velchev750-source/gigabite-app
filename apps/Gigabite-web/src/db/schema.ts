@@ -92,6 +92,46 @@ export const products = pgTable(
   (table) => [index("products_category_id_idx").on(table.categoryId)],
 );
 
+export const comboOffers = pgTable(
+  "combo_offers",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description"),
+    discountPercent: integer("discount_percent").notNull(),
+    imageUrl: text("image_url"),
+    isActive: boolean("is_active").default(true).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("combo_offers_is_active_idx").on(table.isActive),
+    check(
+      "combo_offers_discount_percent_range",
+      sql`${table.discountPercent} between 1 and 90`,
+    ),
+  ],
+);
+
+export const comboOfferItems = pgTable(
+  "combo_offer_items",
+  {
+    id: serial("id").primaryKey(),
+    comboOfferId: integer("combo_offer_id")
+      .notNull()
+      .references(() => comboOffers.id, { onDelete: "cascade" }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
+    quantity: integer("quantity").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("combo_offer_items_combo_offer_id_idx").on(table.comboOfferId),
+    index("combo_offer_items_product_id_idx").on(table.productId),
+    check("combo_offer_items_quantity_positive", sql`${table.quantity} > 0`),
+  ],
+);
+
 export const orders = pgTable(
   "orders",
   {
@@ -133,6 +173,14 @@ export const orderItems = pgTable(
     productId: integer("product_id")
       .notNull()
       .references(() => products.id),
+    comboOfferId: integer("combo_offer_id").references(() => comboOffers.id, {
+      onDelete: "set null",
+    }),
+    comboGroupKey: text("combo_group_key"),
+    comboName: text("combo_name"),
+    comboDiscountPercent: integer("combo_discount_percent"),
+    comboOriginalPrice: numeric("combo_original_price", { precision: 10, scale: 2 }),
+    comboFinalPrice: numeric("combo_final_price", { precision: 10, scale: 2 }),
     productName: text("product_name").notNull(),
     unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
     quantity: integer("quantity").notNull(),
@@ -167,6 +215,23 @@ export const productsRelations = relations(products, ({ many, one }) => ({
     references: [categories.id],
   }),
   orderItems: many(orderItems),
+  comboOfferItems: many(comboOfferItems),
+}));
+
+export const comboOffersRelations = relations(comboOffers, ({ many }) => ({
+  items: many(comboOfferItems),
+  orderItems: many(orderItems),
+}));
+
+export const comboOfferItemsRelations = relations(comboOfferItems, ({ one }) => ({
+  comboOffer: one(comboOffers, {
+    fields: [comboOfferItems.comboOfferId],
+    references: [comboOffers.id],
+  }),
+  product: one(products, {
+    fields: [comboOfferItems.productId],
+    references: [products.id],
+  }),
 }));
 
 export const ordersRelations = relations(orders, ({ many, one }) => ({
@@ -192,11 +257,17 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     fields: [orderItems.productId],
     references: [products.id],
   }),
+  comboOffer: one(comboOffers, {
+    fields: [orderItems.comboOfferId],
+    references: [comboOffers.id],
+  }),
 }));
 
 export type Role = typeof roles.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Product = typeof products.$inferSelect;
+export type ComboOffer = typeof comboOffers.$inferSelect;
+export type ComboOfferItem = typeof comboOfferItems.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;

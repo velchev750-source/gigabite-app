@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       deliveryAddress: body.deliveryAddress,
       customerNote: body.customerNote,
       items: body.items,
+      combos: body.combos,
     });
 
     return NextResponse.json({ orderId: order?.id });

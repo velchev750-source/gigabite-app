@@ -7,6 +7,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   clearWebCart,
+  getWebCartItemKey,
+  getWebCartItemName,
+  getWebCartItemPrice,
   loadWebCart,
   saveWebCart,
   updateWebCartQuantity,
@@ -54,18 +57,18 @@ export function CheckoutPage({
   const totalPrice = useMemo(
     () =>
       cartItems.reduce(
-        (sum, item) => sum + Number(item.product.price) * item.quantity,
+        (sum, item) => sum + getWebCartItemPrice(item) * item.quantity,
         0,
       ),
     [cartItems],
   );
 
-  function updateCartItemQuantity(productId: number, quantity: number) {
-    setCart((current) => updateWebCartQuantity(current, productId, quantity));
+  function updateCartItemQuantity(item: WebCartItem, quantity: number) {
+    setCart((current) => updateWebCartQuantity(current, getWebCartItemKey(item), quantity));
   }
 
-  function removeCartItem(productId: number) {
-    setCart((current) => updateWebCartQuantity(current, productId, 0));
+  function removeCartItem(item: WebCartItem) {
+    setCart((current) => updateWebCartQuantity(current, getWebCartItemKey(item), 0));
   }
 
   async function submitOrder(event: React.FormEvent<HTMLFormElement>) {
@@ -89,10 +92,18 @@ export function CheckoutPage({
           deliveryType,
           deliveryAddress,
           customerNote,
-          items: cartItems.map((item) => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-          })),
+          items: cartItems
+            .filter((item) => item.type !== "combo")
+            .map((item) => ({
+              productId: item.product.id,
+              quantity: item.quantity,
+            })),
+          combos: cartItems
+            .filter((item) => item.type === "combo")
+            .map((item) => ({
+              comboOfferId: item.comboOfferId,
+              quantity: item.quantity,
+            })),
         }),
       });
       const result = (await response.json()) as { message?: string };
@@ -215,11 +226,11 @@ export function CheckoutPage({
               {cartItems.length ? (
                 cartItems.map((item) => (
                   <CheckoutSummaryItem
-                    key={item.product.id}
+                    key={getWebCartItemKey(item)}
                     item={item}
-                    onDecrease={() => updateCartItemQuantity(item.product.id, item.quantity - 1)}
-                    onIncrease={() => updateCartItemQuantity(item.product.id, item.quantity + 1)}
-                    onRemove={() => removeCartItem(item.product.id)}
+                    onDecrease={() => updateCartItemQuantity(item, item.quantity - 1)}
+                    onIncrease={() => updateCartItemQuantity(item, item.quantity + 1)}
+                    onRemove={() => removeCartItem(item)}
                   />
                 ))
               ) : (
@@ -262,11 +273,21 @@ function CheckoutSummaryItem({
     <div className="grid gap-3 rounded-md bg-white/[0.04] p-3">
       <div className="flex justify-between gap-4">
         <div>
-          <p className="text-sm font-black text-white">{item.product.name}</p>
+          <p className="text-sm font-black text-white">{getWebCartItemName(item)}</p>
+          {item.type === "combo" ? (
+            <p className="mt-1 text-xs font-black uppercase text-amber-200">Hot Deal</p>
+          ) : null}
           <p className="mt-1 text-xs text-zinc-400">Qty {item.quantity}</p>
+          {item.type === "combo" ? (
+            <ul className="mt-2 grid gap-1 text-xs font-semibold text-zinc-400">
+              {item.includedProducts.map((product) => (
+                <li key={product.id}>- {product.name} x{product.quantity}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
         <p className="text-sm font-black text-emerald-200">
-          {formatPrice(item.product.price * item.quantity)}
+          {formatPrice(getWebCartItemPrice(item) * item.quantity)}
         </p>
       </div>
       <div className="flex items-center justify-between gap-2">
@@ -275,7 +296,7 @@ function CheckoutSummaryItem({
             type="button"
             onClick={onDecrease}
             className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
-            aria-label={`Decrease ${item.product.name} quantity`}
+            aria-label={`Decrease ${getWebCartItemName(item)} quantity`}
           >
             <Minus className="size-4" aria-hidden="true" />
           </button>
@@ -286,7 +307,7 @@ function CheckoutSummaryItem({
             type="button"
             onClick={onIncrease}
             className="grid size-9 place-items-center text-zinc-200 transition hover:bg-white/10"
-            aria-label={`Increase ${item.product.name} quantity`}
+            aria-label={`Increase ${getWebCartItemName(item)} quantity`}
           >
             <Plus className="size-4" aria-hidden="true" />
           </button>

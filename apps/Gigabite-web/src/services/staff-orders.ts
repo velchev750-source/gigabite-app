@@ -67,6 +67,10 @@ export async function getStaffOrdersByStatus({
         items: {
           columns: {
             id: true,
+            comboOfferId: true,
+            comboGroupKey: true,
+            comboName: true,
+            comboDiscountPercent: true,
             productName: true,
             quantity: true,
           },
@@ -146,6 +150,10 @@ async function getOrdersByStatus(status: StaffOrderStatus) {
       items: {
         columns: {
           id: true,
+          comboOfferId: true,
+          comboGroupKey: true,
+          comboName: true,
+          comboDiscountPercent: true,
           productName: true,
           quantity: true,
         },

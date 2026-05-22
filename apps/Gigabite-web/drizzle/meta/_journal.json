@@ -50,6 +50,13 @@
       "when": 1779359592493,
       "tag": "0006_simple_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779464403691,
+      "tag": "0007_clumsy_namorita",
+      "breakpoints": true
     }
   ]
 }

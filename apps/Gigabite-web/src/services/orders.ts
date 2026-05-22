@@ -1,7 +1,14 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { orderItems, orders, products, type Order } from "@/db/schema";
+import {
+  comboOfferItems,
+  comboOffers,
+  orderItems,
+  orders,
+  products,
+  type Order,
+} from "@/db/schema";
 import { requireRole, type AuthUser } from "@/services/auth";
 
 export const ACTIVE_ORDER_STATUSES = [
@@ -20,12 +27,18 @@ type CreateOrderItemInput = {
   quantity: number;
 };
 
+type CreateComboOrderItemInput = {
+  comboOfferId: number;
+  quantity: number;
+};
+
 export type CreateOrderInput = {
   userId: number;
   deliveryType: "pickup" | "delivery";
   deliveryAddress?: string | null;
   customerNote?: string | null;
   items: CreateOrderItemInput[];
+  combos?: CreateComboOrderItemInput[];
 };
 
 export class OrderValidationError extends Error {
@@ -34,6 +47,20 @@ export class OrderValidationError extends Error {
     this.name = "OrderValidationError";
   }
 }
+
+type PreparedOrderItem = {
+  productId: number;
+  comboOfferId?: number | null;
+  comboGroupKey?: string | null;
+  comboName?: string | null;
+  comboDiscountPercent?: number | null;
+  comboOriginalPrice?: string | null;
+  comboFinalPrice?: string | null;
+  productName: string;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+};
 
 export async function createOrder(input: CreateOrderInput) {
   const user = await requireRole("user");
@@ -56,14 +83,16 @@ export async function createOrderForAuthenticatedCustomer(
   validateCreateOrderInput(input);
 
   const requestedProductIds = input.items.map((item) => item.productId);
-  const dbProducts = await db
-    .select({
-      id: products.id,
-      name: products.name,
-      price: products.price,
-    })
-    .from(products)
-    .where(and(inArray(products.id, requestedProductIds), eq(products.isActive, true)));
+  const dbProducts = requestedProductIds.length
+    ? await db
+        .select({
+          id: products.id,
+          name: products.name,
+          price: products.price,
+        })
+        .from(products)
+        .where(and(inArray(products.id, requestedProductIds), eq(products.isActive, true)))
+    : [];
 
   const productsById = new Map(dbProducts.map((product) => [product.id, product]));
   const missingProductId = requestedProductIds.find((productId) => !productsById.has(productId));
@@ -72,7 +101,7 @@ export async function createOrderForAuthenticatedCustomer(
     throw new OrderValidationError(`Product ${missingProductId} was not found.`);
   }
 
-  const items = input.items.map((item) => {
+  const items: PreparedOrderItem[] = input.items.map((item) => {
     const product = productsById.get(item.productId);
 
     if (!product) {
@@ -91,8 +120,11 @@ export async function createOrderForAuthenticatedCustomer(
     };
   });
 
+  const comboItems = await buildComboOrderItems(input.combos ?? []);
+  const allItems = [...items, ...comboItems];
+
   const totalPrice = formatCents(
-    items.reduce((sum, item) => sum + toCents(item.lineTotal), BigInt(0)),
+    allItems.reduce((sum, item) => sum + toCents(item.lineTotal), BigInt(0)),
   );
 
   const [order] = await db
@@ -108,9 +140,15 @@ export async function createOrderForAuthenticatedCustomer(
     .returning({ id: orders.id });
 
   await db.insert(orderItems).values(
-    items.map((item) => ({
+    allItems.map((item) => ({
       orderId: order.id,
       productId: item.productId,
+      comboOfferId: item.comboOfferId ?? null,
+      comboGroupKey: item.comboGroupKey ?? null,
+      comboName: item.comboName ?? null,
+      comboDiscountPercent: item.comboDiscountPercent ?? null,
+      comboOriginalPrice: item.comboOriginalPrice ?? null,
+      comboFinalPrice: item.comboFinalPrice ?? null,
       productName: item.productName,
       unitPrice: item.unitPrice,
       quantity: item.quantity,
@@ -120,6 +158,98 @@ export async function createOrderForAuthenticatedCustomer(
   const orderId = order.id;
 
   return getOrderById(orderId);
+}
+
+async function buildComboOrderItems(comboInputs: CreateComboOrderItemInput[]): Promise<PreparedOrderItem[]> {
+  if (!comboInputs.length) {
+    return [];
+  }
+
+  for (const comboInput of comboInputs) {
+    if (!Number.isInteger(comboInput.comboOfferId) || comboInput.comboOfferId <= 0) {
+      throw new OrderValidationError("Every hot deal item must reference a valid hot deal.");
+    }
+
+    if (!Number.isInteger(comboInput.quantity) || comboInput.quantity <= 0) {
+      throw new OrderValidationError("Hot deal quantity must be a positive integer.");
+    }
+  }
+
+  const comboOfferIds = comboInputs.map((comboInput) => comboInput.comboOfferId);
+  const rows = await db
+    .select({
+      comboOfferId: comboOffers.id,
+      comboName: comboOffers.name,
+      discountPercent: comboOffers.discountPercent,
+      productId: products.id,
+      productName: products.name,
+      unitPrice: products.price,
+      itemQuantity: comboOfferItems.quantity,
+    })
+    .from(comboOffers)
+    .innerJoin(comboOfferItems, eq(comboOfferItems.comboOfferId, comboOffers.id))
+    .innerJoin(products, eq(products.id, comboOfferItems.productId))
+    .where(
+      and(
+        inArray(comboOffers.id, comboOfferIds),
+        eq(comboOffers.isActive, true),
+        eq(products.isActive, true),
+      ),
+    );
+  const rowsByComboOfferId = new Map<number, typeof rows>();
+
+  for (const row of rows) {
+    rowsByComboOfferId.set(row.comboOfferId, [
+      ...(rowsByComboOfferId.get(row.comboOfferId) ?? []),
+      row,
+    ]);
+  }
+
+  return comboInputs.flatMap((comboInput, comboInputIndex) => {
+    const comboRows = rowsByComboOfferId.get(comboInput.comboOfferId) ?? [];
+
+    if (comboRows.length !== 3) {
+      throw new OrderValidationError(`Hot deal ${comboInput.comboOfferId} was not found.`);
+    }
+
+    const originalPriceCents = comboRows.reduce(
+      (sum, row) => sum + toCents(row.unitPrice) * BigInt(row.itemQuantity),
+      BigInt(0),
+    );
+    const discountCents = (originalPriceCents * BigInt(comboRows[0].discountPercent)) / BigInt(100);
+    const finalPriceCents = originalPriceCents - discountCents;
+    const comboItems: PreparedOrderItem[] = [];
+
+    for (let comboIndex = 0; comboIndex < comboInput.quantity; comboIndex += 1) {
+      const comboGroupKey = `${comboInput.comboOfferId}:${comboInputIndex}:${comboIndex}:${Date.now()}`;
+      let allocatedCents = BigInt(0);
+
+      for (const [index, row] of comboRows.entries()) {
+        const isLastItem = index === comboRows.length - 1;
+        const originalLineCents = toCents(row.unitPrice) * BigInt(row.itemQuantity);
+        const discountedLineCents = isLastItem
+          ? finalPriceCents - allocatedCents
+          : (finalPriceCents * originalLineCents) / originalPriceCents;
+        allocatedCents += discountedLineCents;
+
+        comboItems.push({
+          productId: row.productId,
+          comboOfferId: row.comboOfferId,
+          comboGroupKey,
+          comboName: row.comboName,
+          comboDiscountPercent: row.discountPercent,
+          comboOriginalPrice: formatCents(originalPriceCents),
+          comboFinalPrice: formatCents(finalPriceCents),
+          productName: row.productName,
+          unitPrice: row.unitPrice,
+          quantity: row.itemQuantity,
+          lineTotal: formatCents(discountedLineCents),
+        });
+      }
+    }
+
+    return comboItems;
+  });
 }
 
 async function getOrderById(orderId: number) {
@@ -245,7 +375,7 @@ function validateCreateOrderInput(input: CreateOrderInput) {
     throw new OrderValidationError("Delivery address is required for delivery orders.");
   }
 
-  if (!input.items.length) {
+  if (!input.items.length && !input.combos?.length) {
     throw new OrderValidationError("At least one order item is required.");
   }
 

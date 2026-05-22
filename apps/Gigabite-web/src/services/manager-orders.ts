@@ -81,6 +81,12 @@ export async function getManagerOrdersByTab({
         items: {
           columns: {
             id: true,
+            comboOfferId: true,
+            comboGroupKey: true,
+            comboName: true,
+            comboDiscountPercent: true,
+            comboOriginalPrice: true,
+            comboFinalPrice: true,
             productName: true,
             quantity: true,
             unitPrice: true,
@@ -300,6 +306,12 @@ async function getOrdersByStatus(statuses: Array<typeof orders.$inferSelect.stat
       items: {
         columns: {
           id: true,
+          comboOfferId: true,
+          comboGroupKey: true,
+          comboName: true,
+          comboDiscountPercent: true,
+          comboOriginalPrice: true,
+          comboFinalPrice: true,
           productName: true,
           quantity: true,
           unitPrice: true,

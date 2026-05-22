@@ -103,6 +103,34 @@ function formatMoney(value: string) {
   }).format(Number(value));
 }
 
+function formatStaffOrderItemsSummary(items: StaffOrder["items"]) {
+  const groupedCombos = new Map<string, StaffOrder["items"]>();
+  const normalItems: string[] = [];
+
+  for (const item of items) {
+    if (item.comboGroupKey && item.comboName) {
+      groupedCombos.set(item.comboGroupKey, [
+        ...(groupedCombos.get(item.comboGroupKey) ?? []),
+        item,
+      ]);
+      continue;
+    }
+
+    normalItems.push(`${item.productName} x${item.quantity}`);
+  }
+
+  const comboSummaries = Array.from(groupedCombos.values()).map((comboItems) => {
+    const firstItem = comboItems[0];
+    const contents = comboItems
+      .map((item) => `${item.productName} x${item.quantity}`)
+      .join(", ");
+
+    return `Hot Deal: ${firstItem.comboName} -${firstItem.comboDiscountPercent ?? 0}%: ${contents}`;
+  });
+
+  return [...comboSummaries, ...normalItems].join(" • ");
+}
+
 function formatStaffDate(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
@@ -576,9 +604,7 @@ function StaffOrderCard({
     order.deliveryType === "delivery"
       ? order.deliveryAddress ?? "Delivery address not provided"
       : "Restaurant counter";
-  const itemsSummary = order.items
-    .map((item) => `${item.productName} x${item.quantity}`)
-    .join(" • ");
+  const itemsSummary = formatStaffOrderItemsSummary(order.items);
 
   return (
     <article className="rounded-lg border border-white/10 bg-zinc-950 p-5">
@@ -731,3 +757,4 @@ function StaffActionSubmit({
 function truncateText(value: string, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value;
 }
+
