@@ -17,10 +17,9 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       R2_BACKUP_BUCKET_NAME: ${{ secrets.R2_BACKUP_BUCKET_NAME }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: auto
 
     steps:
       - name: Install PostgreSQL client and AWS CLI
@@ -38,9 +37,9 @@ jobs:
           required_vars=(
             DATABASE_URL
             R2_ACCOUNT_ID
+            R2_ACCESS_KEY_ID
+            R2_SECRET_ACCESS_KEY
             R2_BACKUP_BUCKET_NAME
-            AWS_ACCESS_KEY_ID
-            AWS_SECRET_ACCESS_KEY
           )
 
           for var_name in "${required_vars[@]}"; do
@@ -66,6 +65,10 @@ jobs:
           echo "backup_key=${backup_key}" >> "$GITHUB_OUTPUT"
 
       - name: Upload backup to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           set -euo pipefail
 
