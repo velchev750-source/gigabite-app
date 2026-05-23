@@ -19,6 +19,7 @@ import {
   getWebCartItemKey,
   getWebCartItemName,
   getWebCartItemPrice,
+  getWebCartTotal,
   saveWebCart,
   updateWebCartQuantity,
   type WebCart,
@@ -95,10 +96,7 @@ export function MenuPage({
 
   const cartItems = Object.values(cart);
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = cartItems.reduce(
-    (sum, item) => sum + getWebCartItemPrice(item) * item.quantity,
-    0,
-  );
+  const totalPrice = getWebCartTotal(cart);
   const shouldShowHotDeals = comboOffers.length > 0 && (
     activeCategoryId === "all" || activeCategoryId === "hotDeals"
   );

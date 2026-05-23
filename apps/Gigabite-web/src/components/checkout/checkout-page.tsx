@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   clearWebCart,
+  getWebCartTotal,
   getWebCartItemKey,
   getWebCartItemName,
   getWebCartItemPrice,
@@ -54,14 +55,7 @@ export function CheckoutPage({
   }, [cart, isCartLoaded]);
 
   const cartItems = useMemo(() => Object.values(cart), [cart]);
-  const totalPrice = useMemo(
-    () =>
-      cartItems.reduce(
-        (sum, item) => sum + getWebCartItemPrice(item) * item.quantity,
-        0,
-      ),
-    [cartItems],
-  );
+  const totalPrice = useMemo(() => getWebCartTotal(cart), [cart]);
 
   function updateCartItemQuantity(item: WebCartItem, quantity: number) {
     setCart((current) => updateWebCartQuantity(current, getWebCartItemKey(item), quantity));

@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comboOfferItems, comboOffers, products } from "@/db/schema";
+import { calculateHotDealPricing } from "@/lib/pricing";
 import { requireRole } from "@/services/auth";
 
 export type ComboOfferProduct = {
@@ -228,12 +229,10 @@ function mapComboOffers(
       price: Number(item.product.price),
       quantity: item.quantity,
     }));
-    const originalPrice = offerProducts.reduce(
-      (sum, product) => sum + product.price * product.quantity,
-      0,
+    const { originalPrice, discountAmount, finalPrice } = calculateHotDealPricing(
+      offerProducts,
+      offer.discountPercent,
     );
-    const discountAmount = originalPrice * (offer.discountPercent / 100);
-    const finalPrice = originalPrice - discountAmount;
 
     return {
       id: offer.id,

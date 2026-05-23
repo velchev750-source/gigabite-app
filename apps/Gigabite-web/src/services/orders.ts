@@ -9,6 +9,7 @@ import {
   products,
   type Order,
 } from "@/db/schema";
+import { calculateOrderTotal, formatCents, toCents } from "@/lib/pricing";
 import { requireRole, type AuthUser } from "@/services/auth";
 
 export const ACTIVE_ORDER_STATUSES = [
@@ -123,9 +124,7 @@ export async function createOrderForAuthenticatedCustomer(
   const comboItems = await buildComboOrderItems(input.combos ?? []);
   const allItems = [...items, ...comboItems];
 
-  const totalPrice = formatCents(
-    allItems.reduce((sum, item) => sum + toCents(item.lineTotal), BigInt(0)),
-  );
+  const totalPrice = calculateOrderTotal(allItems);
 
   const [order] = await db
     .insert(orders)
@@ -388,20 +387,4 @@ function validateCreateOrderInput(input: CreateOrderInput) {
       throw new OrderValidationError("Order item quantity must be a positive integer.");
     }
   }
-}
-
-function toCents(value: string) {
-  const [whole = "0", fraction = ""] = value.split(".");
-  return BigInt(whole) * BigInt(100) + BigInt(fraction.padEnd(2, "0").slice(0, 2));
-}
-
-function formatCents(value: bigint) {
-  const zero = BigInt(0);
-  const centsPerUnit = BigInt(100);
-  const sign = value < zero ? "-" : "";
-  const absoluteValue = value < zero ? -value : value;
-  const whole = absoluteValue / centsPerUnit;
-  const fraction = (absoluteValue % centsPerUnit).toString().padStart(2, "0");
-
-  return `${sign}${whole}.${fraction}`;
 }

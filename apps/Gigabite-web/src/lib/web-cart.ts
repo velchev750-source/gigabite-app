@@ -74,6 +74,13 @@ export function getWebCartCount(cart: WebCart) {
   return Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
 }
 
+export function getWebCartTotal(cart: WebCart) {
+  return Object.values(cart).reduce(
+    (sum, item) => sum + getWebCartItemPrice(item) * item.quantity,
+    0,
+  );
+}
+
 export function getWebCartItemKey(item: WebCartItem) {
   return item.type === "combo" ? `combo:${item.comboOfferId}` : `product:${item.product.id}`;
 }
