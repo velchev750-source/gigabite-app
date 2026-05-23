@@ -34,8 +34,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ -n "${DATABASE_URL:-}" ]; then
+            echo "DATABASE_URL configured: yes"
+          else
+            echo "::error::Required secret for DATABASE_URL is not configured."
+            exit 1
+          fi
+
           required_vars=(
-            DATABASE_URL
             R2_ACCOUNT_ID
             R2_ACCESS_KEY_ID
             R2_SECRET_ACCESS_KEY
