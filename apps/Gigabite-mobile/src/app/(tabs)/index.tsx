@@ -74,7 +74,7 @@ export default function HomeScreen() {
     return true;
   }
 
-  function handleAddHotDeal(hotDeal: MobileHotDeal) {
+  function handleAddHotDeal(hotDeal: MobileHotDeal, quantity: number) {
     if (!user) {
       setLoginMessage('Log in before adding items to your cart.');
       blurActiveWebElement();
@@ -83,7 +83,7 @@ export default function HomeScreen() {
     }
 
     setLoginMessage(null);
-    cart.addHotDeal(hotDeal);
+    cart.addHotDeal(hotDeal, quantity);
     return true;
   }
 
@@ -104,7 +104,7 @@ export default function HomeScreen() {
           <SectionTitle title="Hot Deal" subtitle="A live 3-product offer from the active menu." />
           <HotDealCard
             hotDeal={featuredHotDeal}
-            onAdd={() => handleAddHotDeal(featuredHotDeal)}
+            onAdd={(quantity) => handleAddHotDeal(featuredHotDeal, quantity)}
             onPress={() => {
               blurActiveWebElement();
               router.push({ pathname: '/menu', params: { category: 'hotDeal' } });

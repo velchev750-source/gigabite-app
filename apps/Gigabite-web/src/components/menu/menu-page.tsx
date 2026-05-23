@@ -67,6 +67,7 @@ export function MenuPage({
     getInitialActiveCategoryId(categories, initialCategoryName, initialSection),
   );
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [comboQuantities, setComboQuantities] = useState<Record<number, number>>({});
   const [cart, setCart] = useState<WebCart>({});
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [cartMessage, setCartMessage] = useState<string | null>(null);
@@ -128,6 +129,17 @@ export function MenuPage({
     }));
   }
 
+  function getComboQuantity(comboOfferId: number) {
+    return comboQuantities[comboOfferId] ?? 1;
+  }
+
+  function setComboQuantity(comboOfferId: number, quantity: number) {
+    setComboQuantities((current) => ({
+      ...current,
+      [comboOfferId]: Math.min(12, Math.max(1, quantity)),
+    }));
+  }
+
   function addToCart(product: MenuProduct) {
     const quantity = getQuantity(product.id);
 
@@ -147,6 +159,8 @@ export function MenuPage({
   }
 
   function addComboToCart(comboOffer: ComboOfferView) {
+    const quantity = getComboQuantity(comboOffer.id);
+
     setCart((current) => {
       const cartKey = getComboCartKey(comboOffer.id);
       const existing = current[cartKey];
@@ -162,7 +176,7 @@ export function MenuPage({
           originalPrice: comboOffer.originalPrice,
           discountedPrice: comboOffer.finalPrice,
           includedProducts: comboOffer.products,
-          quantity: (existing?.quantity ?? 0) + 1,
+          quantity: (existing?.quantity ?? 0) + quantity,
         },
       };
     });
@@ -265,6 +279,13 @@ export function MenuPage({
                   <ComboOfferCard
                     key={comboOffer.id}
                     comboOffer={comboOffer}
+                    quantity={getComboQuantity(comboOffer.id)}
+                    onDecrease={() =>
+                      setComboQuantity(comboOffer.id, getComboQuantity(comboOffer.id) - 1)
+                    }
+                    onIncrease={() =>
+                      setComboQuantity(comboOffer.id, getComboQuantity(comboOffer.id) + 1)
+                    }
                     onAdd={() => addComboToCart(comboOffer)}
                   />
                 ))
@@ -272,7 +293,7 @@ export function MenuPage({
               {visibleProducts.length ? visibleProducts.map((product) => (
                 <article
                   key={product.id}
-                  className="group overflow-hidden rounded-lg border border-white/10 bg-zinc-950 shadow-xl shadow-black/25 transition duration-300 hover:-translate-y-2 hover:border-rose-400/40"
+                  className="group flex h-full flex-col overflow-hidden rounded-lg border border-white/10 bg-zinc-950 shadow-xl shadow-black/25 transition duration-300 hover:-translate-y-2 hover:border-rose-400/40"
                 >
                   <div className="relative h-56 overflow-hidden">
                     <Image
@@ -291,7 +312,7 @@ export function MenuPage({
                       </span>
                     ) : null}
                   </div>
-                  <div className="p-5">
+                  <div className="flex flex-1 flex-col p-5">
                     <div className="flex items-start justify-between gap-4">
                       <h2 className="text-lg font-black text-white">
                         {product.name}
@@ -303,7 +324,7 @@ export function MenuPage({
                     <p className="mt-3 min-h-16 text-sm leading-6 text-zinc-300">
                       {product.description}
                     </p>
-                    <div className="mt-5 flex items-center justify-between gap-3">
+                    <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                       <div className="grid grid-cols-3 overflow-hidden rounded-md border border-white/10">
                         <button
                           onClick={() =>
@@ -391,9 +412,15 @@ export function MenuPage({
 
 function ComboOfferCard({
   comboOffer,
+  quantity,
+  onDecrease,
+  onIncrease,
   onAdd,
 }: {
   comboOffer: ComboOfferView;
+  quantity: number;
+  onDecrease: () => void;
+  onIncrease: () => void;
   onAdd: () => void;
 }) {
   const imageUrl =
@@ -401,7 +428,7 @@ function ComboOfferCard({
     "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=1200&q=90";
 
   return (
-    <article className="group overflow-hidden rounded-lg border border-white/10 bg-zinc-900 shadow-xl shadow-black/25 transition duration-300 hover:-translate-y-2 hover:border-amber-300/40">
+    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-white/10 bg-zinc-950 shadow-xl shadow-black/25 transition duration-300 hover:-translate-y-2 hover:border-rose-400/40">
       <div className="relative h-56 overflow-hidden">
         <Image
           src={imageUrl}
@@ -410,34 +437,58 @@ function ComboOfferCard({
           sizes="(min-width: 1280px) 25vw, (min-width: 768px) 50vw, 100vw"
           className="object-cover transition duration-500 group-hover:scale-110"
         />
+        <span className="absolute left-4 top-4 rounded-md bg-zinc-950/80 px-3 py-1 text-xs font-black text-amber-200 backdrop-blur">
+          Hot Deal
+        </span>
         <span className="absolute right-4 top-4 rounded-md bg-rose-500/90 px-3 py-1 text-xs font-black text-white backdrop-blur">
           -{comboOffer.discountPercent}%
         </span>
       </div>
-      <div className="p-5">
-        <h2 className="text-xl font-black text-white">{comboOffer.name}</h2>
-        <p className="mt-3 min-h-12 text-sm leading-6 text-zinc-300">{comboOffer.description}</p>
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="text-lg font-black text-white">{comboOffer.name}</h2>
+          <div className="shrink-0 rounded-md bg-emerald-400/15 px-3 py-1 text-right">
+            <p className="text-xs font-bold text-zinc-400 line-through">
+              {formatPrice(comboOffer.originalPrice)}
+            </p>
+            <p className="text-sm font-black text-emerald-200">
+              {formatPrice(comboOffer.finalPrice)}
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 min-h-16 text-sm leading-6 text-zinc-300">{comboOffer.description}</p>
         <ul className="mt-4 grid gap-1 text-sm font-semibold text-zinc-300">
           {comboOffer.products.map((product) => (
             <li key={product.id}>- {product.name} x{product.quantity}</li>
           ))}
         </ul>
-        <div className="mt-5 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold text-zinc-500 line-through">
-              {formatPrice(comboOffer.originalPrice)}
-            </p>
-            <p className="text-2xl font-black text-emerald-200">
-              {formatPrice(comboOffer.finalPrice)}
-            </p>
+        <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+          <div className="grid grid-cols-3 overflow-hidden rounded-md border border-white/10">
+            <button
+              onClick={onDecrease}
+              className="grid size-11 place-items-center text-zinc-200 transition hover:bg-white/10"
+              aria-label={`Decrease ${comboOffer.name} quantity`}
+            >
+              <Minus className="size-4" aria-hidden="true" />
+            </button>
+            <span className="grid size-11 place-items-center bg-white/5 text-sm font-black text-white">
+              {quantity}
+            </span>
+            <button
+              onClick={onIncrease}
+              className="grid size-11 place-items-center text-zinc-200 transition hover:bg-white/10"
+              aria-label={`Increase ${comboOffer.name} quantity`}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+            </button>
           </div>
           <button
             type="button"
             onClick={onAdd}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-rose-500 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-400"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-rose-500 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-400"
           >
             <ShoppingCart className="size-4" aria-hidden="true" />
-            Add Hot Deal
+            Add
           </button>
         </div>
       </div>

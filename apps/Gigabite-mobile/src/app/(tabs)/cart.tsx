@@ -108,11 +108,10 @@ export default function CartScreen() {
 
       cart.clearCart();
       setCustomerNote('');
-      setSuccessMessage(`Order #${response.order_id} submitted for approval.`);
       blurActiveWebElement();
-      router.push({
-        pathname: '/orders',
-        params: { createdOrderId: String(response.order_id) },
+      router.replace({
+        pathname: '/order-success',
+        params: { orderId: String(response.order_id) },
       });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Order creation failed.');

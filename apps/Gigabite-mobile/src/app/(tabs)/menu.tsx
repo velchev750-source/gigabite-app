@@ -132,12 +132,12 @@ export default function MenuScreen() {
                   <HotDealCard
                     key={hotDeal.id}
                     hotDeal={hotDeal}
-                    onAdd={() => {
+                    onAdd={(quantity) => {
                       if (!requireLoginBeforeCart()) {
                         return false;
                       }
 
-                      cart.addHotDeal(hotDeal);
+                      cart.addHotDeal(hotDeal, quantity);
                       return true;
                     }}
                   />

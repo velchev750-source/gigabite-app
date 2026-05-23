@@ -1,6 +1,6 @@
-import { ImageIcon, Plus } from 'lucide-react-native';
+import { ImageIcon, Minus, Plus } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
 import { GigabiteColors, Spacing } from '@/constants/theme';
 import type { MobileHotDeal } from '@/lib/hot-deals-api';
@@ -11,15 +11,35 @@ export function HotDealCard({
   onPress,
 }: {
   hotDeal: MobileHotDeal;
-  onAdd: () => boolean | void;
+  onAdd: (quantity: number) => boolean | void;
   onPress?: () => void;
 }) {
   const [hasImageError, setHasImageError] = useState(false);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
   const shouldShowImage = Boolean(hotDeal.image_url) && !hasImageError;
 
   useEffect(() => {
     setHasImageError(false);
   }, [hotDeal.image_url]);
+
+  function handleAdd(event: GestureResponderEvent) {
+    event.stopPropagation();
+    const wasAdded = onAdd(selectedQuantity);
+
+    if (wasAdded !== false) {
+      setSelectedQuantity(1);
+    }
+  }
+
+  function decreaseQuantity(event: GestureResponderEvent) {
+    event.stopPropagation();
+    setSelectedQuantity((quantity) => Math.max(1, quantity - 1));
+  }
+
+  function increaseQuantity(event: GestureResponderEvent) {
+    event.stopPropagation();
+    setSelectedQuantity((quantity) => quantity + 1);
+  }
 
   return (
     <Pressable
@@ -46,10 +66,18 @@ export function HotDealCard({
       </View>
 
       <View style={styles.body}>
-        <View style={styles.labelPill}>
-          <Text style={styles.labelText}>Hot Deal</Text>
+        <View style={styles.titleRow}>
+          <View style={styles.titleBlock}>
+            <View style={styles.labelPill}>
+              <Text style={styles.labelText}>Hot Deal</Text>
+            </View>
+            <Text style={styles.name}>{hotDeal.name}</Text>
+          </View>
+          <View style={styles.priceBlock}>
+            <Text style={styles.originalPrice}>{formatPrice(hotDeal.original_price)}</Text>
+            <Text style={styles.discountedPrice}>{formatPrice(hotDeal.discounted_price)}</Text>
+          </View>
         </View>
-        <Text style={styles.name}>{hotDeal.name}</Text>
         {hotDeal.description ? <Text style={styles.description}>{hotDeal.description}</Text> : null}
 
         <View style={styles.includedList}>
@@ -60,22 +88,49 @@ export function HotDealCard({
           ))}
         </View>
 
-        <View style={styles.footer}>
-          <View>
-            <Text style={styles.originalPrice}>{formatPrice(hotDeal.original_price)}</Text>
-            <Text style={styles.discountedPrice}>{formatPrice(hotDeal.discounted_price)}</Text>
+        <View style={styles.actions}>
+          <View style={styles.stepper}>
+            <QuantityButton
+              icon="minus"
+              disabled={selectedQuantity === 1}
+              onPress={decreaseQuantity}
+            />
+            <Text style={styles.quantity}>{selectedQuantity}</Text>
+            <QuantityButton icon="plus" onPress={increaseQuantity} />
           </View>
           <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
-              onAdd();
-            }}
+            onPress={handleAdd}
             style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <Plus color={GigabiteColors.background} size={18} />
-            <Text style={styles.addButtonText}>Add Hot Deal</Text>
+            <Text style={styles.addButtonText}>Add</Text>
           </Pressable>
         </View>
       </View>
+    </Pressable>
+  );
+}
+
+function QuantityButton({
+  icon,
+  disabled,
+  onPress,
+}: {
+  icon: 'minus' | 'plus';
+  disabled?: boolean;
+  onPress: (event: GestureResponderEvent) => void;
+}) {
+  const Icon = icon === 'minus' ? Minus : Plus;
+
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.quantityButton,
+        disabled && styles.quantityButtonDisabled,
+        pressed && !disabled && styles.pressed,
+      ]}>
+      <Icon color={disabled ? GigabiteColors.textSubtle : GigabiteColors.text} size={16} />
     </Pressable>
   );
 }
@@ -87,8 +142,8 @@ function formatPrice(price: number) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: GigabiteColors.card,
-    borderColor: `${GigabiteColors.amber}55`,
-    borderRadius: 16,
+    borderColor: GigabiteColors.border,
+    borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -114,7 +169,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     backgroundColor: GigabiteColors.rose,
-    borderRadius: 999,
+    borderRadius: 10,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
     position: 'absolute',
@@ -129,6 +184,16 @@ const styles = StyleSheet.create({
   body: {
     gap: Spacing.two,
     padding: Spacing.three,
+  },
+  titleRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
+  },
+  titleBlock: {
+    flex: 1,
+    gap: Spacing.two,
   },
   labelPill: {
     alignSelf: 'flex-start',
@@ -147,8 +212,12 @@ const styles = StyleSheet.create({
   },
   name: {
     color: GigabiteColors.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
+  },
+  priceBlock: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
   },
   description: {
     color: GigabiteColors.textMuted,
@@ -163,7 +232,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  footer: {
+  actions: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -171,25 +240,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: Spacing.one,
   },
+  stepper: {
+    alignItems: 'center',
+    backgroundColor: GigabiteColors.surface,
+    borderColor: GigabiteColors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    minHeight: 40,
+    paddingHorizontal: Spacing.one,
+  },
+  quantityButton: {
+    alignItems: 'center',
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  quantityButtonDisabled: {
+    opacity: 0.45,
+  },
+  quantity: {
+    color: GigabiteColors.text,
+    fontSize: 15,
+    fontWeight: '900',
+    minWidth: 28,
+    textAlign: 'center',
+  },
   originalPrice: {
     color: GigabiteColors.textSubtle,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     textDecorationLine: 'line-through',
   },
   discountedPrice: {
     color: GigabiteColors.emerald,
-    fontSize: 19,
+    fontSize: 15,
     fontWeight: '900',
   },
   addButton: {
     alignItems: 'center',
+    alignSelf: 'flex-start',
     backgroundColor: GigabiteColors.amber,
-    borderRadius: 12,
+    borderRadius: 9,
     flexDirection: 'row',
     gap: Spacing.one,
-    minHeight: 44,
     paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
   },
   addButtonText: {
     color: GigabiteColors.background,
