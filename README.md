@@ -190,11 +190,35 @@ gigabite-app/
 - `orders` - поръчки.
 - `order_items` - продукти и Hot Deal позиции в поръчки.
 
+## Автоматични Backup-и
+
+Проектът има GitHub Actions workflow за автоматичен backup на PostgreSQL базата данни към private Cloudflare R2 bucket.
+
+Backup процесът:
+
+- стартира веднъж дневно;
+- може да се стартира ръчно чрез `workflow_dispatch`;
+- използва `pg_dump` от Docker image `postgres:18`, съвместим с Neon PostgreSQL 18;
+- създава gzip архив с име `gigabite-db-YYYY-MM-DD-HH-mm-ss.sql.gz`;
+- качва архива в `backups/db/` в R2 backup bucket;
+- изпълнява retention cleanup след успешен upload.
+
+Retention политиката пази последните 7 backup файла. Cleanup стъпката листва файловете в `backups/db/`, разпознава само файлове с backup naming pattern, сортира ги по име в низходящ ред и изтрива само по-старите файлове след най-новите 7. Ако има 7 или по-малко backup-а, не се изтрива нищо.
+
+Потвърдено поведение:
+
+- upload successful;
+- cleanup step executed;
+- retention logic validated;
+- old backup detection works;
+- keep-last-7 policy active.
+
 ## Документация
 
 - [SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md) - локална инсталация и стартиране.
 - [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) - всички нужни environment variables.
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - deployment процес за web и mobile.
+- [docs/BACKUPS.md](./docs/BACKUPS.md) - автоматични database backup-и и retention политика.
 
 ## Screenshots
 
@@ -227,4 +251,3 @@ gigabite-app/
 ## Capstone Контекст
 
 Gigabite е разработен като цялостен Capstone проект с монорепо структура, production-oriented архитектура, реална база данни, ролеви достъп, REST API и отделни web/mobile клиентски приложения.
-
