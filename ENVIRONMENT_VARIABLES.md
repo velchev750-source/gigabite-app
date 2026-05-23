@@ -104,6 +104,20 @@ R2_ENDPOINT=https://your-cloudflare-account-id.r2.cloudflarestorage.com
 
 Опционален R2 endpoint. Ако е зададен, приложението го използва директно. Ако липсва, endpoint-ът се изгражда от `R2_ACCOUNT_ID`.
 
+## GitHub Actions Backup
+
+Workflow-ът `.github/workflows/backup-db.yml` използва отделен private R2 bucket за database backup-и. Тези стойности се задават като GitHub repository secrets, не като Netlify environment variables.
+
+```env
+DATABASE_URL=
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BACKUP_BUCKET_NAME=
+```
+
+`R2_BACKUP_BUCKET_NAME` е bucket-ът за backup архиви. Той е отделен от `R2_BUCKET_NAME`, който уеб приложението използва за публични продуктови и Hot Deal изображения.
+
 ## Mobile Приложение
 
 Файл за локална разработка:
@@ -180,6 +194,16 @@ R2_ENDPOINT=
 EXPO_PUBLIC_API_URL=
 ```
 
+За автоматичния database backup в GitHub Actions задайте отделно repository secrets:
+
+```env
+DATABASE_URL=
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BACKUP_BUCKET_NAME=
+```
+
 ## Сигурност
 
 - Не commit-вайте `.env.local` или `.env` файлове.
@@ -187,4 +211,3 @@ EXPO_PUBLIC_API_URL=
 - Сменяйте `JWT_SECRET`, ако е бил споделен публично.
 - Използвайте отделни R2 keys за development и production.
 - Ограничете правата на R2 credentials само до нужния bucket.
-

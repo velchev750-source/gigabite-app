@@ -18,6 +18,8 @@
 
 ```bash
 cd apps/Gigabite-web
+npm run lint
+npm run test
 npm run build
 ```
 
@@ -81,6 +83,20 @@ npm run db:seed
 ```
 
 За реална production среда seed-ването на demo акаунти трябва да се използва внимателно.
+
+### Database Backup Secrets
+
+Автоматичният database backup workflow използва GitHub Actions secrets, не Netlify environment variables:
+
+```env
+DATABASE_URL=
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BACKUP_BUCKET_NAME=
+```
+
+`R2_BACKUP_BUCKET_NAME` трябва да сочи към private R2 bucket за архиви и е отделен от публичния `R2_BUCKET_NAME` за снимки.
 
 ## Mobile Web Deployment в Netlify
 
@@ -160,4 +176,3 @@ npx eas build --platform ios
 4. Ако има database migration проблем, възстановете backup или приложете коригираща migration чрез Drizzle.
 
 Не променяйте production базата ръчно, освен ако няма извънредна причина и имате backup.
-

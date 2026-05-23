@@ -112,6 +112,8 @@ npm run db:seed
 
 Seed скриптът създава роли, demo потребители, категории, продукти и примерни поръчки.
 
+Текущият seed добавя и по-голям набор от demo/stress потребители и поръчки, за да има достатъчно данни за manager и staff изгледите.
+
 ## Стартиране на Проекта
 
 ### Стартиране на всичко от root
@@ -143,9 +145,11 @@ http://localhost:3000
 npm run build
 npm run start
 npm run lint
+npm run test
 npm run db:generate
 npm run db:migrate
 npm run db:seed
+npm run db:seed:stress
 npm run db:studio
 ```
 
@@ -270,8 +274,9 @@ Mobile:
 
 ```bash
 cd apps/Gigabite-web
-npm run build
 npm run lint
+npm run test
+npm run build
 ```
 
 ```bash
@@ -292,4 +297,3 @@ npm run build:web
 - staff preparation flow;
 - Hot Deal добавяне и поръчка;
 - мобилно меню, количка и поръчки.
-
