@@ -10,6 +10,7 @@ The workflow:
 - creates a plain SQL dump;
 - compresses it with `gzip`;
 - uploads the `.sql.gz` file to Cloudflare R2 using the S3-compatible API;
+- deletes old database backups after a successful upload;
 - supports both scheduled and manual execution.
 
 ## Schedule
@@ -62,6 +63,26 @@ Example:
 backups/db/gigabite-db-2026-05-23-02-30-00.sql.gz
 ```
 
+## Retention Policy
+
+The current retention policy keeps the newest 7 database backups.
+
+After a backup is uploaded successfully, the workflow lists files under:
+
+```text
+backups/db/
+```
+
+It only considers files that match the database backup naming pattern:
+
+```text
+gigabite-db-YYYY-MM-DD-HH-mm-ss.sql.gz
+```
+
+The workflow sorts matching backup keys by filename in descending order. Because the filenames start with a UTC timestamp in `YYYY-MM-DD-HH-mm-ss` format, this keeps the newest backups first. The newest 7 files are kept, and any older matching backup files are deleted.
+
+Cleanup is skipped automatically when 7 or fewer matching backup files exist. Non-backup files in the same prefix are ignored.
+
 ## Manual Run Instructions
 
 1. Open the GitHub repository.
@@ -82,4 +103,3 @@ gunzip -c gigabite-db-YYYY-MM-DD-HH-mm-ss.sql.gz | psql "$DATABASE_URL"
 ```
 
 For a clean restore, use an empty database or manually drop existing objects first. Always test restore steps on a non-production database before restoring production data.
-
