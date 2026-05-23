@@ -27,7 +27,9 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y postgresql-client awscli
+          sudo apt-get install -y postgresql-client python3-pip
+          python3 -m pip install --user awscli
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Validate required secrets
         run: |
@@ -78,4 +80,3 @@ jobs:
       - name: Report backup location
         run: |
           echo "Backup uploaded to R2 path: backups/db/$(basename "${{ steps.backup.outputs.backup_file }}")"
-
