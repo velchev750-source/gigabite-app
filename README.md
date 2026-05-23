@@ -213,6 +213,45 @@ Retention политиката пази последните 7 backup файла
 - old backup detection works;
 - keep-last-7 policy active.
 
+## Автоматизирани Тестове
+
+Проектът има минимален автоматизиран test setup за `Gigabite-web`, подходящ за Capstone bonus проверка.
+
+Тестовата конфигурация използва Vitest и покрива стабилна бизнес логика без нужда от реална база данни, R2 credentials, production secrets или network calls.
+
+Покрити тестове:
+
+- Hot Deal discount calculation;
+- order total calculation;
+- money/cents helper логика;
+- web cart count;
+- web cart total;
+- cart key, name и unit price helpers;
+- update/remove cart quantity behavior.
+
+Добавен е отделен GitHub Actions workflow:
+
+```text
+.github/workflows/test.yml
+```
+
+Workflow-ът изпълнява:
+
+```bash
+npm ci
+npm --workspace gigabite-web run lint
+npm --workspace gigabite-web run test
+npm --workspace gigabite-web run build
+```
+
+Потвърдено поведение:
+
+- CI workflow created;
+- `workflow_dispatch` manual trigger active;
+- pricing calculations tested;
+- web cart tests passing;
+- GitHub Actions workflow run successful.
+
 ## Документация
 
 - [SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md) - локална инсталация и стартиране.
