@@ -259,6 +259,20 @@ npm --workspace gigabite-web run build
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - deployment процес за web и mobile.
 - [docs/BACKUPS.md](./docs/BACKUPS.md) - автоматични database backup-и и retention политика.
 
+## Постигнат Performance
+
+### Уеб приложение
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Уеб%20Скорост.webp" alt="Gigabite уеб performance резултат" width="850">
+</p>
+
+### Мобилно приложение
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Мобилна%20Скорост.webp" alt="Gigabite мобилен performance резултат" width="360">
+</p>
+
 ## Screenshots
 
 ### Начална страница
