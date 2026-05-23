@@ -261,16 +261,53 @@ npm --workspace gigabite-web run build
 
 ## Screenshots
 
-Добавете screenshots за Capstone представяне:
+### Начална страница
 
-- Начална страница.
-- Меню.
-- Количка и checkout.
-- Профил и история на поръчки.
-- Admin панел.
-- Staff панел.
-- Мобилно меню.
-- Мобилна количка.
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Начална%20страница.webp" alt="Gigabite начална страница" width="850">
+</p>
+
+### Меню
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Меню.webp" alt="Gigabite меню" width="850">
+</p>
+
+### Количка и checkout
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Количка%20и%20checkout.webp" alt="Gigabite количка и checkout" width="850">
+</p>
+
+### Профил и история на поръчки
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Профил%20и%20история%20на%20поръчки.webp" alt="Gigabite профил и история на поръчки" width="850">
+</p>
+
+### Admin панел
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Admin%20Панел.webp" alt="Gigabite admin панел" width="850">
+</p>
+
+### Staff панел
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Staff%20панел.webp" alt="Gigabite staff панел" width="850">
+</p>
+
+### Мобилно меню
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Мобилно%20меню.webp" alt="Gigabite мобилно меню" width="360">
+</p>
+
+### Мобилна количка
+
+<p align="center">
+  <img src="./apps/Docs/Screenshots/Мобилна%20количка.webp" alt="Gigabite мобилна количка" width="360">
+</p>
 
 ## Известни Ограничения
 
