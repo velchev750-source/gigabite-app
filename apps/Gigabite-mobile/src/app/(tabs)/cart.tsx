@@ -1,20 +1,24 @@
 import { CheckCircle2, Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
 import { PrimaryButton } from '@/components/primary-button';
 import { ScreenContainer } from '@/components/screen-container';
 import { SectionTitle } from '@/components/section-title';
-import { GigabiteColors, Spacing } from '@/constants/theme';
+import { GigabiteColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import {
   getCartItemKey,
@@ -33,13 +37,18 @@ type DeliveryType = 'pickup' | 'delivery';
 export default function CartScreen() {
   const cart = useCart();
   const { token, user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [customerNote, setCustomerNote] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutBarHeight, setCheckoutBarHeight] = useState(0);
   const authSessionKey = user && token ? `${user.id}:${token}` : null;
+  const checkoutBarBottom = Math.max(insets.bottom, Spacing.two);
+  const scrollBottomPadding = checkoutBarHeight + tabBarHeight + checkoutBarBottom + Spacing.four;
 
   useEffect(() => {
     if (user?.defaultDeliveryAddress && !deliveryAddress) {
@@ -150,94 +159,104 @@ export default function CartScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenContainer>
-        <AppHeader
-          eyebrow="Cart"
-          title="Review your order."
-          subtitle="Checkout is delivery confirmation only. No payment provider is used."
-        />
-
-        <SectionTitle title="Order items" subtitle={`${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}`} />
-        <View style={styles.list}>
-          {cart.items.map((item) => (
-            <CartLineItem key={getCartItemKey(item)} item={item} />
-          ))}
-        </View>
-
-        <View style={styles.totalCard}>
-          <SummaryRow label="Subtotal" value={formatPrice(cart.totalPrice)} />
-          <SummaryRow label="Final total" value={formatPrice(cart.totalPrice)} isStrong />
-        </View>
-
-        <SectionTitle title="Checkout" subtitle="Confirm how you want to receive the order." />
-        <View style={styles.checkoutCard}>
-          <View style={styles.segmented}>
-            <DeliveryOption
-              label="Pickup"
-              isActive={deliveryType === 'pickup'}
-              onPress={() => setDeliveryType('pickup')}
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPadding }]}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.inner}>
+            <AppHeader
+              eyebrow="Cart"
+              title="Review your order."
+              subtitle="Checkout is delivery confirmation only. No payment provider is used."
             />
-            <DeliveryOption
-              label="Delivery"
-              isActive={deliveryType === 'delivery'}
-              onPress={() => setDeliveryType('delivery')}
-            />
+
+            <SectionTitle title="Order items" subtitle={`${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}`} />
+            <View style={styles.list}>
+              {cart.items.map((item) => (
+                <CartLineItem key={getCartItemKey(item)} item={item} />
+              ))}
+            </View>
+
+            <View style={styles.totalCard}>
+              <SummaryRow label="Subtotal" value={formatPrice(cart.totalPrice)} />
+              <SummaryRow label="Final total" value={formatPrice(cart.totalPrice)} isStrong />
+            </View>
+
+            <SectionTitle title="Checkout" subtitle="Confirm how you want to receive the order." />
+            <View style={styles.checkoutCard}>
+              <View style={styles.segmented}>
+                <DeliveryOption
+                  label="Pickup"
+                  isActive={deliveryType === 'pickup'}
+                  onPress={() => setDeliveryType('pickup')}
+                />
+                <DeliveryOption
+                  label="Delivery"
+                  isActive={deliveryType === 'delivery'}
+                  onPress={() => setDeliveryType('delivery')}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.inputLabel}>Delivery address</Text>
+                <TextInput
+                  editable={deliveryType === 'delivery'}
+                  multiline
+                  onChangeText={setDeliveryAddress}
+                  placeholder={deliveryType === 'delivery' ? 'Street, building, entrance...' : 'Not required for pickup'}
+                  placeholderTextColor={GigabiteColors.textSubtle}
+                  style={[styles.input, deliveryType === 'pickup' && styles.inputDisabled]}
+                  value={deliveryAddress}
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.inputLabel}>Customer note</Text>
+                <TextInput
+                  multiline
+                  onChangeText={setCustomerNote}
+                  placeholder="Optional note for the kitchen"
+                  placeholderTextColor={GigabiteColors.textSubtle}
+                  style={[styles.input, styles.noteInput]}
+                  value={customerNote}
+                />
+              </View>
+
+              {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+              {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
+            </View>
+
+            <PrimaryButton label="Clear cart" variant="secondary" onPress={cart.clearCart} />
           </View>
+        </ScrollView>
+      </SafeAreaView>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.inputLabel}>Delivery address</Text>
-            <TextInput
-              editable={deliveryType === 'delivery'}
-              multiline
-              onChangeText={setDeliveryAddress}
-              placeholder={deliveryType === 'delivery' ? 'Street, building, entrance...' : 'Not required for pickup'}
-              placeholderTextColor={GigabiteColors.textSubtle}
-              style={[styles.input, deliveryType === 'pickup' && styles.inputDisabled]}
-              value={deliveryAddress}
-            />
+      <View pointerEvents="box-none" style={[styles.checkoutBarShell, { bottom: checkoutBarBottom }]}>
+        <View
+          onLayout={(event) => setCheckoutBarHeight(event.nativeEvent.layout.height)}
+          style={styles.checkoutBar}>
+          <View>
+            <Text style={styles.checkoutBarLabel}>Final total</Text>
+            <Text style={styles.checkoutBarTotal}>{formatPrice(cart.totalPrice)}</Text>
           </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.inputLabel}>Customer note</Text>
-            <TextInput
-              multiline
-              onChangeText={setCustomerNote}
-              placeholder="Optional note for the kitchen"
-              placeholderTextColor={GigabiteColors.textSubtle}
-              style={[styles.input, styles.noteInput]}
-              value={customerNote}
-            />
-          </View>
-
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
+          <Pressable
+            disabled={!canSubmit}
+            onPress={() => void submitOrder()}
+            style={({ pressed }) => [
+              styles.submitButton,
+              !canSubmit && styles.submitButtonDisabled,
+              pressed && canSubmit && styles.pressed,
+            ]}>
+            {isSubmitting ? (
+              <ActivityIndicator color={GigabiteColors.background} />
+            ) : (
+              <>
+                <CheckCircle2 color={GigabiteColors.background} size={18} />
+                <Text style={styles.submitButtonText}>Submit order</Text>
+              </>
+            )}
+          </Pressable>
         </View>
-
-        <PrimaryButton label="Clear cart" variant="secondary" onPress={cart.clearCart} />
-      </ScreenContainer>
-
-      <View style={styles.checkoutBar}>
-        <View>
-          <Text style={styles.checkoutBarLabel}>Final total</Text>
-          <Text style={styles.checkoutBarTotal}>{formatPrice(cart.totalPrice)}</Text>
-        </View>
-        <Pressable
-          disabled={!canSubmit}
-          onPress={() => void submitOrder()}
-          style={({ pressed }) => [
-            styles.submitButton,
-            !canSubmit && styles.submitButtonDisabled,
-            pressed && canSubmit && styles.pressed,
-          ]}>
-          {isSubmitting ? (
-            <ActivityIndicator color={GigabiteColors.background} />
-          ) : (
-            <>
-              <CheckCircle2 color={GigabiteColors.background} size={18} />
-              <Text style={styles.submitButtonText}>Submit order</Text>
-            </>
-          )}
-        </Pressable>
       </View>
     </View>
   );
@@ -339,6 +358,18 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: GigabiteColors.background,
     flex: 1,
+  },
+  safeArea: {
+    backgroundColor: GigabiteColors.background,
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  inner: {
+    gap: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
   },
   emptyCard: {
     alignItems: 'center',
@@ -559,20 +590,26 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textAlign: 'center',
   },
+  checkoutBarShell: {
+    alignItems: 'center',
+    left: 0,
+    paddingHorizontal: Spacing.three,
+    position: 'absolute',
+    right: 0,
+    zIndex: 20,
+  },
   checkoutBar: {
     alignItems: 'center',
     backgroundColor: GigabiteColors.surface,
     borderColor: GigabiteColors.border,
     borderRadius: 18,
     borderWidth: 1,
-    bottom: 88,
     flexDirection: 'row',
     gap: Spacing.three,
     justifyContent: 'space-between',
-    left: Spacing.three,
+    maxWidth: MaxContentWidth - Spacing.three * 2,
     padding: Spacing.two,
-    position: 'absolute',
-    right: Spacing.three,
+    width: '100%',
   },
   checkoutBarLabel: {
     color: GigabiteColors.textMuted,
