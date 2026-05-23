@@ -270,7 +270,7 @@ npm --workspace gigabite-web run build
 ### Мобилно приложение
 
 <p align="center">
-  <img src="./apps/Docs/Screenshots/Мобилна%20Скорост.webp" alt="Gigabite мобилен performance резултат" width="360">
+  <img src="./apps/Docs/Screenshots/Мобилна%20Скорост.webp" alt="Gigabite мобилен performance резултат" width="850">
 </p>
 
 ## Screenshots
